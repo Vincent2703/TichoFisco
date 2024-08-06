@@ -2,16 +2,15 @@ import csv
 from collections import defaultdict
 from glob import glob
 
-from fillpdf.fillpdfs import write_fillable_pdf, get_form_fields, flatten_pdf
 from openpyxl.utils import get_column_letter
 from openpyxl import load_workbook, Workbook
 from pathlib import Path
 import logging
 from datetime import datetime
+
+from controllers.Receipt import receiptsToPDFs
 from models.Member import Member
 from utils import styles, utils
-from fillpdf import fillpdfs
-
 
 
 ## Fonctions
@@ -21,6 +20,7 @@ def getNbMemberInList(email, name, surname, list):
         if member.isThisMember(email, name, surname):
             return nbMember
     return False
+
 
 def createOrResetMembersList(year):
     membersList = paths["listesAdherents"] / f"{year}.xlsx"
@@ -149,7 +149,8 @@ def getDataFromPaymentsFile(path, source):
         requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant",
                         "Carte de crédit/débit - État "]
         for row in csvContent:
-            if all(row[key] is not None for key in requiredCols) and row["Carte de crédit/débit - État "].casefold() == "completed":
+            if all(row[key] is not None for key in requiredCols) and row[
+                "Carte de crédit/débit - État "].casefold() == "completed":
                 payments.append({
                     "mail": row["E-mail"],
                     "nom": row["Nom"],
@@ -200,7 +201,6 @@ paymentsFiles = {
     "cb": glob(str(paths["paiementsCB"] / "*.csv"))
 }
 
-
 membersByYear = defaultdict(list)
 years = []
 for source, filePaths in paymentsFiles.items():
@@ -210,10 +210,12 @@ for source, filePaths in paymentsFiles.items():
             if year not in years:  # Si c'est la première fois à l'execution qu'on tombe sur cette année
                 years.append(year)  # On ajoute cette année à la liste des années
                 membersByYear[year] = []  # On créait une nouvelle liste d'adhérents pour cette année
-                sheet = createOrResetMembersList(year)  # On créait ou on réinitialise le fichier liste des adhérents correspondant
+                sheet = createOrResetMembersList(
+                    year)  # On créait ou on réinitialise le fichier liste des adhérents correspondant
 
                 # On doit par conséquent créer le nouvel adhérent pour cette année
-                newMember = Member(payment["mail"], payment["nom"], payment["prenom"], payment["adresse"], payment["cp"], payment["ville"], payment["telephone"])
+                newMember = Member(payment["mail"], payment["nom"], payment["prenom"], payment["adresse"],
+                                   payment["cp"], payment["ville"], payment["telephone"])
                 newMember.addPayment(payment["montant"], payment["source"], payment["date"], False)
                 membersByYear[year].append(newMember)
             else:  # S'il y a déjà une liste d'adhérents pour cette année
@@ -225,26 +227,14 @@ for source, filePaths in paymentsFiles.items():
                     member.addPayment(payment["montant"], payment["source"], payment["date"], True)
                 else:
                     # Sinon on le créait
-                    newMember = Member(payment["mail"], payment["nom"], payment["prenom"], payment["adresse"], payment["cp"], payment["ville"], payment["telephone"])
+                    newMember = Member(payment["mail"], payment["nom"], payment["prenom"], payment["adresse"],
+                                       payment["cp"], payment["ville"], payment["telephone"])
                     newMember.addPayment(payment["montant"], payment["source"], payment["date"], False)
                     membersByYear[year].append(newMember)
 
-            """data = {
-                "idReceipt": "test",
-                "name": "nom",
-                "surname": "prénom",
-                "address": "adresse",
-                "postalCode": "38000",
-                "city": "ville",
-                "amount": "**38,00**",
-                "paymentDate": "27/03/1998",
-                "paymentSource": "Hello Asso",
-                "editionDate": "27/03/1998"
-            }
-            write_fillable_pdf("assets/templateReceiptTicho2.pdf", "donnees/recusFiscaux/"+payment["nom"]+''+payment["prenom"]+".pdf", data, flatten=True)
-            flatten_pdf("donnees/recusFiscaux/"+payment["nom"]+''+payment["prenom"]+".pdf", "donnees/recusFiscaux/"+payment["nom"]+''+payment["prenom"]+"2.pdf", as_images=True)"""
-
 years.sort(reverse=True)
+
+#nbReceipts = 0
 for year in years:
     membersByYear[year] = sorted(membersByYear[year], key=lambda member: member.lastPayment or datetime.min)
     workbookPath = paths["listesAdherents"] / f"{year}.xlsx"
@@ -252,13 +242,25 @@ for year in years:
     sheet = workbook.active
 
     for member in membersByYear[year]:
+        # Vérification que tous les adhérents ont des coordonnées de contact valides
+        if member.hasValidAddress():
+            # Création des reçus
+            receiptsToPDFs(member.receipts)
+            """if receiptsToPDFs(member.receipts):
+                nbReceipts+=1
+            else:
+                logging.error("Une erreur est survenue lors de l'édition des")"""
+        else:
+            logging.warning(member.surname + ' ' + member.name + " n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
+
         for y in years:  # On parcourt chaque année précédente
             if y < year:
                 nbMember = getNbMemberInList(member.email, member.name, member.surname, membersByYear[y])
                 if nbMember is not False:  # Est-ce que c'est un ancien adhérent ?
-                    if y == int(year)-1:  #Est-ce que c'est currAnnée-1 ?
+                    if y == int(year) - 1:  # Est-ce que c'est currAnnée-1 ?
                         if membersByYear[y][nbMember].amounts["paidMemberShipNextYear"] > 0:  # Est-ce que l'adh a déjà réglé une partie de l'adhésion ?
-                            member.amounts["paidMembershipLastYear"] = membersByYear[y][nbMember].amounts["paidMemberShipNextYear"]
+                            member.amounts["paidMembershipLastYear"] = membersByYear[y][nbMember].amounts[
+                                "paidMemberShipNextYear"]
 
                     if member.status == "NA":  # Si l'adh a déjà donné cette année
                         member.status = "RA"
@@ -274,6 +276,3 @@ for year in years:
 
     workbook.save(workbookPath)
     workbook.close()
-
-
-

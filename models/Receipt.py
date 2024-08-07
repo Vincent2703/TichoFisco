@@ -1,11 +1,22 @@
 from datetime import datetime
 
+from utils.loadSave import save
+
 
 class Receipt:
-    def __init__(self, member, amount, source, date):
+    def __init__(self, member, amount, source, date, refPayment):
         self.member = member
-        # Vérifier si reçu le même jour
-        self.id = datetime.strptime(date, "%d/%m/%Y").strftime("%y%m%d") + member.surname[0].upper() + member.name[0].upper() + '0'
+        self.refPayment = refPayment
+
+        num = 1
+        baseID = datetime.strptime(date, "%d/%m/%Y").strftime("%y%m%d") + member.surname[0].upper() + member.name[0].upper()
+        while save.isIDReceiptExists(baseID+str(num)):
+            if save.getReceiptByID(baseID+str(num))["refPayment"] != self.refPayment:
+                num += 1
+            else:
+                break
+        self.id = baseID+str(num)
+
         self.amount = float(amount)
         self.date = date
         if source == "helloAsso":
@@ -20,9 +31,8 @@ class Receipt:
     def toDict(self):
         member = self.member
         return {
-            "idReceipt": self.id,
-            "name": member.name,
-            "surname": member.surname,
+            "idReceipt": "ID reçu : " + self.id,
+            "name": member.name + ' ' + member.surname,
             "address": member.address,
             "postalCode": member.postalCode,
             "city": member.city,

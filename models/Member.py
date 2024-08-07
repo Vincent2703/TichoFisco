@@ -3,7 +3,7 @@ from datetime import datetime
 from models.Receipt import Receipt
 
 
-class Member:
+class Member: #TODO: move some functions to the controller
     def __init__(self, email, name, surname, address, postalCode, city, phone):
         self.email = email
         self.name = name.upper()
@@ -37,13 +37,13 @@ class Member:
         if self.phone.casefold() != phone.casefold():
             self.phone = phone
 
-    def addPayment(self, amount, source, date, donationAfterMembership):
+    def addPayment(self, amount, source, date, refPayment, donationAfterMembership):
         self.amounts["totalYear"] += amount
         self.lastTypePayment = source
         self.lastPayment = datetime.strptime(date, "%d/%m/%Y")
         if donationAfterMembership:
             self.status = "DON-ADH"
-        receipt = Receipt(self, amount, source, date)
+        receipt = Receipt(self, amount, source, date, refPayment)
         self.receipts.append(receipt)
 
     def calcAmounts(self):

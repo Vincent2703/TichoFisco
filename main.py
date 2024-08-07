@@ -11,9 +11,10 @@ from datetime import datetime
 from controllers.Receipt import receiptsToPDFs
 from models.Member import Member
 from utils import styles, utils
-
+from utils.loadSave import save
 
 ## Fonctions
+
 
 def getNbMemberInList(email, name, surname, list):
     for nbMember, member in enumerate(list):
@@ -99,7 +100,8 @@ def getDataFromPaymentsFile(path, source):
                     "ville": row[11].value,
                     "telephone": '',
                     "montant": float(row[1].value),
-                    "source": source
+                    "source": source,
+                    "refPaiement": row[0].value
                 })
     elif source == "paypal":
         requiredCols = [0, 2, 8, 9, 4]
@@ -118,7 +120,8 @@ def getDataFromPaymentsFile(path, source):
                     "ville": row[12].value,
                     "telephone": '',
                     "montant": float(row[8].value),
-                    "source": source
+                    "source": source,
+                    "refPaiement": row[10].value
                 })
     elif source == "virEspChq":
         requiredCols = [0, 2, 3, 4, 8]
@@ -143,14 +146,14 @@ def getDataFromPaymentsFile(path, source):
                     "ville": row[7].value,
                     "telephone": '',
                     "montant": float(row[8].value),
-                    "source": source
+                    "source": source,
+                    "refPaiement": row[1].value
                 })
     elif source == "cb":
         requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant",
                         "Carte de crédit/débit - État "]
         for row in csvContent:
-            if all(row[key] is not None for key in requiredCols) and row[
-                "Carte de crédit/débit - État "].casefold() == "completed":
+            if all(row[key] is not None for key in requiredCols) and row["Carte de crédit/débit - État "].casefold() == "completed":
                 payments.append({
                     "mail": row["E-mail"],
                     "nom": row["Nom"],
@@ -162,7 +165,8 @@ def getDataFromPaymentsFile(path, source):
                     "ville": row["Address - Ville"],
                     "telephone": str(row["Téléphone"]),
                     "montant": float(row["Carte de crédit/débit - Montant"]),
-                    "source": source
+                    "source": source,
+                    "refPaiement": str(row["Carte de crédit/débit - ID de la transaction"])
                 })
 
     return payments
@@ -216,7 +220,7 @@ for source, filePaths in paymentsFiles.items():
                 # On doit par conséquent créer le nouvel adhérent pour cette année
                 newMember = Member(payment["mail"], payment["nom"], payment["prenom"], payment["adresse"],
                                    payment["cp"], payment["ville"], payment["telephone"])
-                newMember.addPayment(payment["montant"], payment["source"], payment["date"], False)
+                newMember.addPayment(payment["montant"], payment["source"], payment["date"], payment["refPaiement"], False)
                 membersByYear[year].append(newMember)
             else:  # S'il y a déjà une liste d'adhérents pour cette année
                 nbMember = getNbMemberInList(payment["mail"], payment["nom"], payment["prenom"], membersByYear[year])
@@ -224,12 +228,12 @@ for source, filePaths in paymentsFiles.items():
                     # On le met à jour (si besoin)
                     member = membersByYear[year][nbMember]
                     member.updateContactData(payment["adresse"], payment["cp"], payment["ville"], payment["telephone"])
-                    member.addPayment(payment["montant"], payment["source"], payment["date"], True)
+                    member.addPayment(payment["montant"], payment["source"], payment["date"], payment["refPaiement"], True)
                 else:
                     # Sinon on le créait
                     newMember = Member(payment["mail"], payment["nom"], payment["prenom"], payment["adresse"],
                                        payment["cp"], payment["ville"], payment["telephone"])
-                    newMember.addPayment(payment["montant"], payment["source"], payment["date"], False)
+                    newMember.addPayment(payment["montant"], payment["source"], payment["date"], payment["refPaiement"], False)
                     membersByYear[year].append(newMember)
 
 years.sort(reverse=True)
@@ -246,6 +250,7 @@ for year in years:
         if member.hasValidAddress():
             # Création des reçus
             receiptsToPDFs(member.receipts)
+            save.addMemberReceipts(member)
             """if receiptsToPDFs(member.receipts):
                 nbReceipts+=1
             else:
@@ -269,6 +274,8 @@ for year in years:
                     break
 
         sheet.append(member.toArray())
+
+    save.save()
 
     for row in sheet.iter_rows(min_row=2):
         for cell in row:

@@ -36,8 +36,9 @@ class Receipt:
             "address": member.address,
             "postalCode": member.postalCode,
             "city": member.city,
-            "amount": "**" + "{:.2f}".format(self.amount) + "**",
+            "amount": "**" + "{:.2f}".format(self.amount).replace('.', ',') + "**",
             "paymentDate": self.date,
+            "paymentYear": str(datetime.strptime(self.date, "%d/%m/%Y").year),
             "paymentSource": self.source,
             "editionDate": datetime.now().strftime("%d/%m/%Y")
         }

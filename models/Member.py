@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from models.Receipt import Receipt
+from utils.loadSave import save
 
 
 class Member: #TODO: move some functions to the controller
@@ -18,7 +19,7 @@ class Member: #TODO: move some functions to the controller
         self.amounts = {  # private ?
             "paidMembershipLastYear": 0,
             "paidMembershipYear": 0,
-            "paidMemberShipNextYear": 0,
+            "paidMembershipNextYear": 0,
             "donationsYear": 0,
             "totalYear": 0
         }
@@ -45,18 +46,17 @@ class Member: #TODO: move some functions to the controller
             self.status = "DON-ADH"
         receipt = Receipt(self, amount, source, date, refPayment)
         self.receipts.append(receipt)
+        save.cacheThisReceiptID(receipt.id)
 
     def calcAmounts(self):
-        restToPay = self.rate - self.amounts["paidMembershipLastYear"]
+        """restToPay = self.rate - self.amounts["paidMembershipLastYear"]
         self.amounts["paidMembershipYear"] = min(self.amounts["totalYear"], restToPay)
 
         if self.lastPayment.month >= 9:  # Après septembre, RAA
-            self.amounts["paidMembershipNextYear"] = min(self.amounts["totalYear"] - self.amounts["paidMembershipYear"],
-                                                         self.rate)
+            self.amounts["paidMembershipNextYear"] = min(self.amounts["totalYear"] - self.amounts["paidMembershipYear"], self.rate)
             self.status = "RAA"
 
-        self.amounts["donationsYear"] = self.amounts["totalYear"] - self.amounts["paidMembershipYear"] - self.amounts[
-            "paidMembershipNextYear"]
+        self.amounts["donationsYear"] = self.amounts["totalYear"] - self.amounts["paidMembershipYear"] - self.amounts["paidMembershipNextYear"]"""
 
     def addReceipt(self, blabla):
         self.receipts.append(Receipt(self))
@@ -70,5 +70,6 @@ class Member: #TODO: move some functions to the controller
 
     def toArray(self):
         return [self.email, self.name, self.surname, ";".join([receipt.id for receipt in self.receipts]), self.status,
-                self.lastMembership, self.sendingMail, self.address, self.postalCode, self.city, self.phone, 0, 0, 0, 0,
-                0, self.lastPayment.strftime("%d/%m/%Y"), self.lastTypePayment, self.notes]
+                self.lastMembership, self.sendingMail, self.address, self.postalCode, self.city, self.phone,
+                self.amounts["paidMembershipLastYear"], self.amounts["paidMembershipYear"], self.amounts["paidMembershipNextYear"], self.amounts["donationsYear"], self.amounts["totalYear"],
+                self.lastPayment.strftime("%d/%m/%Y"), self.lastTypePayment, self.notes]

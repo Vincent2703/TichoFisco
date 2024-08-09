@@ -13,12 +13,13 @@ from models.Member import Member
 from utils import styles, utils
 from utils.loadSave import save
 
+
 ## Fonctions
 
 
 def getNbMemberInList(email, name, surname, list):
     for nbMember, member in enumerate(list):
-        if member.isThisMember(email, name, surname):
+        if type(member) != str and member.isThisMember(email, name, surname):
             return nbMember
     return False
 
@@ -106,9 +107,8 @@ def getDataFromPaymentsFile(path, source):
     elif source == "paypal":
         requiredCols = [0, 2, 8, 9, 4]
         for row in sheet.iter_rows(min_row=4):
-            if all(row[idx].value is not None for idx in requiredCols) and row[4].value == "Terminé" and float(
-                    row[8].value) > 0:
-                prenomNom = row[2].value.split(' ', 1)
+            if all(row[idx].value is not None for idx in requiredCols) and row[4].value == "Terminé" and float(row[8].value) > 0:
+                prenomNom = row[2].value.rsplit(' ', 1)
                 payments.append({
                     "mail": row[9].value,
                     "nom": prenomNom[0],
@@ -153,7 +153,8 @@ def getDataFromPaymentsFile(path, source):
         requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant",
                         "Carte de crédit/débit - État "]
         for row in csvContent:
-            if all(row[key] is not None for key in requiredCols) and row["Carte de crédit/débit - État "].casefold() == "completed":
+            if all(row[key] is not None for key in requiredCols) and row[
+                "Carte de crédit/débit - État "].casefold() == "completed":
                 payments.append({
                     "mail": row["E-mail"],
                     "nom": row["Nom"],
@@ -188,7 +189,7 @@ paths = {  # TODO : use Path()
     "paiementsPaypal": dataPath / "paiements/paypal",
     "paiementsVirEspChq": dataPath / "paiements/virEspChq",
     "paiementsCB": dataPath / "paiements/CB",
-    "recusFiscaux": dataPath / "recusFiscaux" / str(currentDatetime.year) / str(currentDatetime.month)
+    "recusFiscaux": dataPath / "recusFiscaux"
 }
 
 for key, path in paths.items():
@@ -214,13 +215,13 @@ for source, filePaths in paymentsFiles.items():
             if year not in years:  # Si c'est la première fois à l'execution qu'on tombe sur cette année
                 years.append(year)  # On ajoute cette année à la liste des années
                 membersByYear[year] = []  # On créait une nouvelle liste d'adhérents pour cette année
-                sheet = createOrResetMembersList(
-                    year)  # On créait ou on réinitialise le fichier liste des adhérents correspondant
+                sheet = createOrResetMembersList(year)  # On créait ou on réinitialise le fichier liste des adhérents correspondant
 
                 # On doit par conséquent créer le nouvel adhérent pour cette année
                 newMember = Member(payment["mail"], payment["nom"], payment["prenom"], payment["adresse"],
                                    payment["cp"], payment["ville"], payment["telephone"])
-                newMember.addPayment(payment["montant"], payment["source"], payment["date"], payment["refPaiement"], False)
+                newMember.addPayment(payment["montant"], payment["source"], payment["date"], payment["refPaiement"],
+                                     False)
                 membersByYear[year].append(newMember)
             else:  # S'il y a déjà une liste d'adhérents pour cette année
                 nbMember = getNbMemberInList(payment["mail"], payment["nom"], payment["prenom"], membersByYear[year])
@@ -228,17 +229,48 @@ for source, filePaths in paymentsFiles.items():
                     # On le met à jour (si besoin)
                     member = membersByYear[year][nbMember]
                     member.updateContactData(payment["adresse"], payment["cp"], payment["ville"], payment["telephone"])
-                    member.addPayment(payment["montant"], payment["source"], payment["date"], payment["refPaiement"], True)
+                    member.addPayment(payment["montant"], payment["source"], payment["date"], payment["refPaiement"],
+                                      True)
                 else:
                     # Sinon on le créait
                     newMember = Member(payment["mail"], payment["nom"], payment["prenom"], payment["adresse"],
                                        payment["cp"], payment["ville"], payment["telephone"])
-                    newMember.addPayment(payment["montant"], payment["source"], payment["date"], payment["refPaiement"], False)
+                    newMember.addPayment(payment["montant"], payment["source"], payment["date"], payment["refPaiement"],
+                                         False)
                     membersByYear[year].append(newMember)
 
-years.sort(reverse=True)
+#years.sort(reverse=True)
+years.sort()
 
-#nbReceipts = 0
+# nbReceipts = 0
+
+
+"""for year in years:
+    for member in membersByYear[year]:
+        prevYearStr = str(int(year)-1)
+        if membersByYear[prevYearStr] != []:
+            nbMember = getNbMemberInList(member.email, member.name, member.surname, membersByYear) #to fix: Pourquoi membersByYear contient l'année à la fin ?
+            if type(nbMember) is int:
+                paidMembershipNextYear = membersByYear[prevYearStr][nbMember].amounts["paidMembershipNextYear"]
+                print(paidMembershipNextYear) #Pas afficher
+                if paidMembershipNextYear > 0:
+                    member.amounts["paidMembershipLastYear"] = paidMembershipNextYear
+
+        total = member.amounts["totalYear"]
+        restToPay = member.rate-member.amounts["paidMembershipLastYear"]
+        membershipThisYear = min(restToPay, total)
+
+        membershipNextYear = 0
+        if datetime.strptime(member.receipts[-1].date, "%d/%m/%Y").month >= 9 and total >= member.rate*2:  # Après septembre
+            membershipNextYear = min(restToPay, total-membershipThisYear)
+
+        totalDonation = total - membershipThisYear - membershipNextYear
+
+        member.amounts["paidMembershipYear"] = membershipThisYear
+        member.amounts["paidMembershipNextYear"] = membershipNextYear
+        member.amounts["donationsYear"] = totalDonation"""
+
+
 for year in years:
     membersByYear[year] = sorted(membersByYear[year], key=lambda member: member.lastPayment or datetime.min)
     workbookPath = paths["listesAdherents"] / f"{year}.xlsx"
@@ -256,26 +288,31 @@ for year in years:
             else:
                 logging.error("Une erreur est survenue lors de l'édition des")"""
         else:
-            logging.warning(member.surname + ' ' + member.name + " n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
+            logging.warning(
+                member.surname + ' ' + member.name + " n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
 
-        for y in years:  # On parcourt chaque année précédente
+
+
+
+
+        """for y in years:  # On parcourt chaque année précédente
             if y < year:
                 nbMember = getNbMemberInList(member.email, member.name, member.surname, membersByYear[y])
                 if nbMember is not False:  # Est-ce que c'est un ancien adhérent ?
-                    if y == int(year) - 1:  # Est-ce que c'est currAnnée-1 ?
-                        if membersByYear[y][nbMember].amounts["paidMemberShipNextYear"] > 0:  # Est-ce que l'adh a déjà réglé une partie de l'adhésion ?
-                            member.amounts["paidMembershipLastYear"] = membersByYear[y][nbMember].amounts[
-                                "paidMemberShipNextYear"]
+                    if int(y) == int(year) - 1:  # Est-ce que c'est currAnnée-1 ?
+                        print( membersByYear[y][nbMember].amounts["paidMembershipNextYear"])
+                        if membersByYear[y][nbMember].amounts["paidMembershipNextYear"] > 0:  # Est-ce que l'adh a déjà réglé une partie de l'adhésion ?
+                            member.amounts["paidMembershipLastYear"] = membersByYear[y][nbMember].amounts["paidMembershipNextYear"]
 
                     if member.status == "NA":  # Si l'adh a déjà donné cette année
                         member.status = "RA"
                         member.lastMembership = y
 
-                    break
+                    break"""
+        # Calculer les montants
+        #member.calcAmounts()
 
         sheet.append(member.toArray())
-
-    save.save()
 
     for row in sheet.iter_rows(min_row=2):
         for cell in row:
@@ -283,3 +320,5 @@ for year in years:
 
     workbook.save(workbookPath)
     workbook.close()
+
+save.save()

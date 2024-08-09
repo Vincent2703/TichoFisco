@@ -6,13 +6,14 @@ import os
 class Save:
     def __init__(self):
         self.receipts = {}
-        receiptsIDCache = [] #Pour savoir quoi supprimer ensuite
-        #Ou alors on ajoute tous les IDs au début puis on les enlève à chaque fois qu'on s'occupe d'un receipt ?
-        #Comme ça à la fin on a juste les IDs des reçus à supprimer...
+        self.receiptsIDCache = []  # Ids des reçus mis à jour/créés. Permet de savoir quels reçus on doit supprimer de la sauvegarde.
         self.members = {}
         self.config = {}
         if not os.path.isfile(".save"):
             open(".save", "x")
+
+    def cacheThisReceiptID(self, receiptID):
+        self.receiptsIDCache.append(receiptID)
 
     def addMemberReceipts(self, member):
         for receipt in member.receipts:
@@ -47,8 +48,10 @@ class Save:
         return None
 
     def save(self):
+        receiptsToSave = {id: self.receipts[id] for id in self.receiptsIDCache if id in self.receipts}
+
         content = {
-            "receipts": self.receipts,
+            "receipts": receiptsToSave,
             "members": self.members,
             "config": self.config
         }

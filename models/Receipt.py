@@ -6,12 +6,12 @@ from utils.loadSave import save
 class Receipt:
     def __init__(self, member, amount, source, date, refPayment):
         self.member = member
-        self.refPayment = refPayment
+        self.refPayment = str(refPayment)
 
         num = 1
         baseID = datetime.strptime(date, "%d/%m/%Y").strftime("%y%m%d") + member.surname[0].upper() + member.name[0].upper()
-        while save.isIDReceiptExists(baseID+str(num)):
-            if save.getReceiptByID(baseID+str(num))["refPayment"] != self.refPayment:
+        while save.isIDReceiptExistsInCache(baseID+str(num)):
+            if save.getCachedReceiptRefPaymentByID(baseID+str(num)) != self.refPayment:
                 num += 1
             else:
                 break

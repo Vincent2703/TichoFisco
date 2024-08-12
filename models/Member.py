@@ -7,12 +7,13 @@ from utils.loadSave import save
 class Member: #TODO: move some functions to the controller
     def __init__(self, email, name, surname, address, postalCode, city, phone):
         self.email = email
-        self.name = name.upper()
-        self.surname = surname[0].upper() + surname[1:].lower()
+        self.name = name
+        self.surname = surname
 
         self.receipts = []
-        self.status = "NA"
+        self.status = None
         self.lastMembership = None
+        self.regular = False
         self.sendingMail = True
         self.address, self.postalCode, self.city = address, postalCode, city
         self.phone = str(phone)
@@ -38,28 +39,18 @@ class Member: #TODO: move some functions to the controller
         if self.phone.casefold() != phone.casefold():
             self.phone = phone
 
-    def addPayment(self, amount, source, date, refPayment, donationAfterMembership):
-        self.amounts["totalYear"] += amount
-        self.lastTypePayment = source
-        self.lastPayment = datetime.strptime(date, "%d/%m/%Y")
-        if donationAfterMembership:
+    def addPayment(self, payment):
+        self.amounts["totalYear"] += payment.amount
+        self.lastTypePayment = payment.source
+        self.lastPayment = datetime.strptime(payment.date, "%d/%m/%Y")
+        self.regular = payment.regular
+        if self.status is None:
+            self.status = "NA"
+        else:
             self.status = "DON-ADH"
-        receipt = Receipt(self, amount, source, date, refPayment)
+        receipt = Receipt(self, payment.amount, payment.source, payment.date, payment.refPayment)
         self.receipts.append(receipt)
-        save.cacheThisReceiptID(receipt.id)
-
-    def calcAmounts(self):
-        """restToPay = self.rate - self.amounts["paidMembershipLastYear"]
-        self.amounts["paidMembershipYear"] = min(self.amounts["totalYear"], restToPay)
-
-        if self.lastPayment.month >= 9:  # Après septembre, RAA
-            self.amounts["paidMembershipNextYear"] = min(self.amounts["totalYear"] - self.amounts["paidMembershipYear"], self.rate)
-            self.status = "RAA"
-
-        self.amounts["donationsYear"] = self.amounts["totalYear"] - self.amounts["paidMembershipYear"] - self.amounts["paidMembershipNextYear"]"""
-
-    def addReceipt(self, blabla):
-        self.receipts.append(Receipt(self))
+        save.cacheThisReceipt(receipt)
 
     def isThisMember(self, email, name, surname):
         return (email.casefold() == self.email.casefold()) or (
@@ -70,6 +61,6 @@ class Member: #TODO: move some functions to the controller
 
     def toArray(self):
         return [self.email, self.name, self.surname, ";".join([receipt.id for receipt in self.receipts]), self.status,
-                self.lastMembership, self.sendingMail, self.address, self.postalCode, self.city, self.phone,
+                self.lastMembership, self.regular, self.sendingMail, self.address, self.postalCode, self.city, self.phone,
                 self.amounts["paidMembershipLastYear"], self.amounts["paidMembershipYear"], self.amounts["paidMembershipNextYear"], self.amounts["donationsYear"], self.amounts["totalYear"],
                 self.lastPayment.strftime("%d/%m/%Y"), self.lastTypePayment, self.notes]

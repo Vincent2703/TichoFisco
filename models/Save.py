@@ -2,6 +2,10 @@ import hashlib
 import json
 import os
 
+import orjson as orjson
+
+from utils.misc import saveHiddenFile
+
 
 class Save:
     def __init__(self):
@@ -15,13 +19,14 @@ class Save:
     def cacheThisReceipt(self, receipt):
         self.receiptsCache[receipt.id] = receipt.refPayment
 
-    def addMemberReceipts(self, member):
-        for receipt in member.receipts:
+    def addReceipts(self, receipts):
+        for receipt in receipts:
             receiptData = receipt.toDict()
             receiptDataStr = json.dumps(receiptData, sort_keys=True, default=str)
             self.receipts[receipt.id] = {
                 "hash": hashlib.md5(receiptDataStr.encode("utf-8")).hexdigest(),
                 "refPayment": receipt.refPayment,
+                "canBeExported": receipt.canBeExported,
                 "sent": False
             }
 
@@ -32,7 +37,7 @@ class Save:
         if os.stat(".save").st_size > 0:
             with open(".save", 'r') as saveFile:
                 saveContent = saveFile.read()
-                saveJSON = json.loads(saveContent)  # TODO: Manage errors
+                saveJSON = orjson.loads(saveContent)  # TODO: Manage errors
                 self.receipts = saveJSON["receipts"]
                 self.members = saveJSON["members"]
                 self.config = saveJSON["config"]
@@ -53,10 +58,9 @@ class Save:
     def save(self):
         receiptsToSave = {id: self.receipts[id] for id in self.receiptsCache if id in self.receipts}
 
-        content = {
+        JSONContent = orjson.dumps({
             "receipts": receiptsToSave,
             "members": self.members,
             "config": self.config
-        }
-        with open(".save", "w") as outfile:
-            json.dump(content, outfile)
+        })
+        saveHiddenFile(".save", JSONContent, binary=True)

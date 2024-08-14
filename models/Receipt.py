@@ -18,6 +18,7 @@ class Receipt:
         self.id = baseID+str(num)
 
         self.amount = float(amount)
+        self.canBeExported = self.amount >= 15
         self.date = date
         if source == "helloAsso":
             self.source = "Hello Asso"
@@ -28,7 +29,7 @@ class Receipt:
         else:
             self.source = source
 
-    def toDict(self):
+    def toDict(self):  # private ?
         member = self.member
         return {
             "idReceipt": "ID reçu : " + self.id,

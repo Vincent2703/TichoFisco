@@ -46,7 +46,7 @@ class Payment:
         if len(phone) == 10 and phone[0] == 0:
             self.phone = phone
         elif len(phone) == 9:
-            self.phone = '0'+phone
+            self.phone = '0' + phone
         else:
             self.phone = ''
             if phone != '':
@@ -65,7 +65,7 @@ class Payment:
         else:
             self.setNoValid(f"Référence du paiement inexistante : '{refPayment}'")
 
-
     def setNoValid(self, cause):
         self.isValid = False
         self.notValidCause = cause
+

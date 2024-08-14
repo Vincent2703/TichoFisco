@@ -1,5 +1,6 @@
-/assets/templateReceiptTicho.pdf
-/donnees/recusFiscaux/
+/assets/modeleRecuTichodrome.pdf
 /.idea/
 /.save
 /__pycache__/
+/donnees/
+/.gitignore

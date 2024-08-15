@@ -22,7 +22,7 @@ def saveHiddenFile(filename, content, binary=False):
         # Définir l'attribut de fichier caché sous Windows
         FILE_ATTRIBUTE_HIDDEN = 0x02
         try:
-            ctypes.windll.kernel32.SetFileAttributesW(filename, FILE_ATTRIBUTE_HIDDEN)
+            ctypes.windll.kernel32.SetFileAttributesW(ctypes.create_unicode_buffer(str(filename)), FILE_ATTRIBUTE_HIDDEN)
         except Exception as e:
             logging.error(f"Erreur lors de la définition de l'attribut caché : {e}")
     else:

@@ -1,6 +1,7 @@
 /assets/modeleRecuTichodrome.pdf
 /.idea/
 /.save
-/__pycache__/
+__pycache__/
 /donnees/
 /.gitignore
+*.py[cod]

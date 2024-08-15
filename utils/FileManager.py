@@ -14,9 +14,9 @@ from pypdf import PdfReader, PdfWriter
 from pypdf import generic
 
 from models.Payment import Payment
+from models.Save import Save
 from utils import styles, misc
 from utils.PathManager import PathManager
-from utils.loadSave import save
 
 
 def getDataFromPaymentsFile(path, source):
@@ -114,8 +114,7 @@ def getDataFromPaymentsFile(path, source):
         requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant",
                         "Carte de crédit/débit - État "]
         for row in csvContent:
-            if all(row[key] is not None for key in requiredCols) and row[
-                "Carte de crédit/débit - État "].casefold() == "completed":
+            if all(row[key] is not None for key in requiredCols) and row["Carte de crédit/débit - État "].casefold() == "completed":
                 newPayment = Payment(
                     email=row["E-mail"],
                     name=row["Nom"],
@@ -149,7 +148,7 @@ def initMembersFile(year):  # Création du fichier ou réinitialisation
             fields = ["Adresse mail", "Nom", "Prénom", "IDs reçus", "Statut",
                       "Dern. adh.", "Régulier", "Envoi mails", "Adresse", "Code postal", "Ville", "Téléphone",
                       "Adh. " + precYear, "Adh. " + year, "Adh. " + nextYear,
-                      "Dons " + year, "Total " + year, "Dern. paiement", "Dern. moy. paiement", "Remarques"]
+                      "Dons " + year, "Total " + year, "Dern. paiement", "Dern. moy. paiement", "Tarif", "Remarques"]
 
             # Ajouter les en-têtes de colonnes
             sheet.append(fields)
@@ -209,8 +208,7 @@ def exportMembersFile(filePath, members):
         workbook = load_workbook(filename=filePath)
         sheet = workbook.active
 
-        members = sorted(members, key=attrgetter(
-            "lastPayment"))  # Trie des membres selon la date du dernier paiement, par ordre chronologique
+        members = sorted(members, key=attrgetter("lastPayment"))  # Trie des membres selon la date du dernier paiement, par ordre chronologique
         for member in members:  # On ajoute chaque membre au fichier Excel
             sheet.append(member.toArray())
 
@@ -231,24 +229,30 @@ def exportMembersFile(filePath, members):
         workbook.save(filePath)  # Puis on sauvegarde
         workbook.close()
         logging.info(f"Succès de l'exportation du fichier {filePath}")
-    except (Exception,) as error:
+    except(Exception,) as error:
         logging.error(f"Une erreur est survenue lors de l'exportation du fichier {filePath}.\n{error}")
 
 
 def exportMemberReceipts(members):
-    try:
-        for member in members:
-            if member.hasValidAddress():
+    for member in members:
+        if member.hasValidAddress():
+            try:  # Exportation des PDFs
                 exportedReceipts = _exportReceipts(member.receipts)
-                save.addReceipts(exportedReceipts)
+            except(Exception,) as error:
+                logging.error(f"Une erreur est survenue lors de l'exportation des reçus de '{member.name} {member.surname}'")
 
+            try:  # Sauvegarde des reçus et des éventuelles remarques et tarifs
+                Save().addReceipts(exportedReceipts)
                 if member.notes is not None:
-                    save.addMemberNotes(member.email, member.notes)
-            else:
-                logging.warning(
-                    member.surname + ' ' + member.name + " n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
-    except (Exception,) as error:
-        logging.error(f"Une erreur est survenue lors de l'exportation des reçus.\n{error}")
+                    Save().addMemberNotes(member.email, member.notes)
+                if member.rate != Save().defaultRate["value"]:  # Si ce n'est pas le tarif par défaut, on l'enregistre
+                    Save().addMembersRate(member.email, member.rate)
+            except(Exception,) as error:
+                logging.error(f"Une erreur est survenue lors de l'enregistrement de '{member.name} {member.surname}' dans le fichier de sauvegarde.")
+        else:
+            logging.warning(
+                member.surname + ' ' + member.name + " n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
+
 
 
 def _exportReceipts(receipts):
@@ -286,7 +290,7 @@ def _exportReceipts(receipts):
             newHash = md5(receiptDataStr.encode("utf-8")).hexdigest()
             savedHash = None
             if path.isfile(filepath):
-                savedHash = save.getHashReceipt(receipt.id)
+                savedHash = Save().getHashReceipt(receipt.id)
 
             if savedHash != newHash:
                 writer.update_page_form_field_values(

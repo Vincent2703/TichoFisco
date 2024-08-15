@@ -6,9 +6,9 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from models.Member import Member
+from models.Save import Save
 from utils.FileManager import initMembersFile, getDataFromPaymentsFile, exportMembersFile, exportMemberReceipts
 from utils.PathManager import PathManager
-from utils.loadSave import save
 from utils.misc import openDir
 
 
@@ -22,8 +22,7 @@ class Update:
             logging.error(f"Impossible d'ouvrir le dossier : '{dirPath}'")
 
     def processPayments(self):
-        def getNbMemberInList(email, name, surname,
-                              list):  # Permet de retrouver un adhérent parmi une liste d'instances
+        def getNbMemberInList(email, name, surname, list):  # Permet de retrouver un adhérent parmi une liste d'instances
             for nbMember, member in enumerate(list):
                 if member.isThisMember(email, name, surname):
                     return nbMember
@@ -36,6 +35,7 @@ class Update:
         Dans un premier temps, on récupère les données des fichiers de paiements
         puis à partir de ces données, on enregistre les adhérents ainsi que leurs paiements
         """
+        defaultRate = Save().defaultRate["value"]
         for source, filePaths in self.paths["paymentFilesPatterns"].items():  # Pour chaque fichier de paiement récupéré
             for filePath in filePaths:
                 for payment in getDataFromPaymentsFile(filePath, source):  # On obtient ses données
@@ -43,22 +43,40 @@ class Update:
                     if year not in years:  # Si est pas encore tombé sur l'année, on doit soit créer le fichier liste des adhérents correspondant, ou alors le réinit
                         years.append(year)
                         membersByYear[year] = []
-                        membersNotes = {}
+                        membersNotesRate = {}
                         membersList = self.paths["listesAdherents"] / f"{year}.xlsx"
                         if Path(membersList).is_file():  # Si le fichier existe déjà
                             workbook = load_workbook(membersList)
                             sheet = workbook.active
-                            for row in sheet.iter_rows(  # TODO: s'arrêter avant les totaux
-                                    min_row=2):  # On regarde s'il y a des remarques à récupérer pour les remettre dans le fichier final si l'adh y est toujours présent
-                                if row[19].value is not None:
-                                    membersNotes[row[0].value] = str(row[19].value)  # Récupère les remarques
+                            for row in sheet.iter_rows(min_row=2, max_row=len(sheet['A'])-4):  # On regarde s'il y a des remarques à récupérer pour les remettre dans le fichier final si l'adh y est toujours présent
+                                memberEmail = row[0].value
+                                notes = row[20].value
+                                rate = row[19].value
+                                if notes is not None or rate != defaultRate:
+                                    membersNotesRate[memberEmail] = {"notes": '', "rate": defaultRate}
+                                if notes is not None:
+                                    membersNotesRate[memberEmail]["notes"] = str(notes)
+                                if rate != defaultRate:
+                                    membersNotesRate[memberEmail]["rate"] = float(rate)
 
                         initMembersFile(year)  # Réinit/Création de la liste des adhérents
 
                     newMember = Member(payment.email, payment.name, payment.surname, payment.address,
                                        payment.postalCode, payment.city, payment.phone)  # TODO : set by keys
-                    if payment.email in membersNotes:  # Si on a récup des remarques pour cet adh
-                        newMember.notes = membersNotes[payment.email]  # Save
+                    if payment.email in membersNotesRate:  # Si on a récup des remarques ou un tarif pour cet adh
+                        if membersNotesRate[payment.email]["notes"] is not None:
+                            newMember.notes = membersNotesRate[payment.email]["notes"]  # On enregistre les remarques pour l'instance
+                        if membersNotesRate[payment.email]["rate"] != defaultRate :
+                            memberRate = membersNotesRate[payment.email]["rate"]
+                            if str(memberRate).replace('.', '').isnumeric():  # Si c'est une valeur numérique
+                                newMember.rate = float(memberRate)  # On enregistre le tarif directement
+                            else:  # Sinon on cherche si ça correspond à un nom de tarif enregistré
+                                rate = Save().getRateByName(str(memberRate))
+                                if rate is not None:
+                                    newMember.rate = rate["value"]
+                                else:
+                                    logging.warning(f"Le tarif renseigné pour {newMember.name} {newMember.surname} est incorrect : '{memberRate}'.\nLe tarif par défaut sera utilisé à la place.")
+                                    newMember.rate = Save().defaultRate["value"]
 
                     nbMember = getNbMemberInList(newMember.email, newMember.name, newMember.surname, membersByYear[year])
                     if type(nbMember) is int:  # Si on a déjà l'adh pour l'année en question
@@ -118,6 +136,7 @@ class Update:
             exportMemberReceipts(membersByYear[year])
 
         """ Puis on sauvegarde """
-        save.save()
+        Save().save()
 
         logging.info("Succès du traitement des fichiers de paiements.")
+        return "SUCCESS"

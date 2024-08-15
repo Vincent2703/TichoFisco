@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from models.Receipt import Receipt
-from utils.loadSave import save
+from models.Save import Save
 
 
 class Member:
@@ -24,7 +24,7 @@ class Member:
             "donationsYear": 0,
             "totalYear": 0
         }
-        self.rate = 18
+        self.rate = Save().defaultRate["value"]
         self.lastPayment = None
         self.lastTypePayment = None  # or use self.receipts[0]
         self.notes = None
@@ -54,7 +54,7 @@ class Member:
             self.status = "DON-ADH"
         receipt = Receipt(self, payment.amount, payment.source, payment.date, payment.refPayment)
         self.receipts.append(receipt)
-        save.cacheThisReceipt(receipt)
+        Save().cacheThisReceipt(receipt)
 
     def isThisMember(self, email, name, surname):
         return (email.casefold() == self.email.casefold()) or (
@@ -69,9 +69,4 @@ class Member:
                 self.phone,
                 self.amounts["paidMembershipLastYear"], self.amounts["paidMembershipYear"],
                 self.amounts["paidMembershipNextYear"], self.amounts["donationsYear"], self.amounts["totalYear"],
-                self.lastPayment.strftime("%d/%m/%Y"), self.lastTypePayment, self.notes]
-
-    """def getNamesAndNbPayments(self):
-        return {
-            
-        }"""
+                self.lastPayment.strftime("%d/%m/%Y"), self.lastTypePayment, self.rate, self.notes]

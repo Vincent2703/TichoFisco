@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from utils.loadSave import save
+from models.Save import Save
 
 
 class Receipt:
@@ -10,8 +10,8 @@ class Receipt:
 
         num = 1
         baseID = datetime.strptime(date, "%d/%m/%Y").strftime("%y%m%d") + member.surname[0].upper() + member.name[0].upper()
-        while save.isIDReceiptExistsInCache(baseID+str(num)):
-            if save.getCachedReceiptRefPaymentByID(baseID+str(num)) != self.refPayment:
+        while Save().isIDReceiptExistsInCache(baseID+str(num)):
+            if Save().getCachedReceiptRefPaymentByID(baseID+str(num)) != self.refPayment:
                 num += 1
             else:
                 break

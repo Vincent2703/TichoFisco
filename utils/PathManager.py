@@ -21,6 +21,7 @@ class PathManager:
 
         self.dirFiles = {
             "PDFTemplate": self._assetsPath / "modeleRecuTichodrome.pdf",
+            "save": self._currentPath / ".save",
             "memberListsPattern": glob(str(self.dirPaths["listesAdherents"] / "*.xlsx")),
             "paymentFilesPatterns": {
                 "helloAsso": glob(str(self.dirPaths["paiementsHelloAsso"] / "*.xlsx")),

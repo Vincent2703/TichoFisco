@@ -16,6 +16,7 @@ from pypdf import generic
 from models.Payment import Payment
 from models.Save import Save
 from utils import styles, misc
+from utils.LogManager import LogManager
 from utils.PathManager import PathManager
 
 
@@ -26,8 +27,7 @@ def getDataFromPaymentsFile(path, source):
         if newPayment.isValid:
             payments.append(payment)
         else:
-            logging.warning(
-                f"Impossible d'ajouter le paiement '{payment.source.upper()}' venant de '{payment.name} {payment.surname}'. Ref: '{payment.refPayment}'.\n{payment.notValidCause}")
+            LogManager().addLog("update", LogManager.LOGTYPE_WARNING, f"Impossible de traiter le paiement '{payment.source.upper()}' venant de '{payment.name} {payment.surname}'. Référence du paiement : '{payment.refPayment}'.\nRaison -> {payment.notValidCause}")
 
     if source != "cb":
         workbook = load_workbook(filename=path)
@@ -169,10 +169,10 @@ def initMembersFile(year):  # Création du fichier ou réinitialisation
             # Sauvegarder le fichier
             workbook.save(membersList)
             workbook.close()
-            logging.info(f"Fichier {membersList} créé")
+            LogManager().addLog("update", LogManager.LOGTYPE_INFO, f"Fichier {membersList} créé.")
             return sheet
         except OSError as error:
-            logging.error(f"Impossible de créer le fichier {membersList} : {error}")
+            LogManager().addLog("error", LogManager.LOGTYPE_ERROR, f"Impossible de créer le fichier {membersList} : {error}.")
             return False
     else:  # Sinon remettre tout à zero
         try:
@@ -184,7 +184,7 @@ def initMembersFile(year):  # Création du fichier ou réinitialisation
             workbook.close()
             return sheet
         except OSError as error:
-            logging.error(f"Impossible d'ouvrir le fichier {membersList} : {error}")
+            LogManager().addLog("error", LogManager.LOGTYPE_ERROR, f"Impossible de créer le fichier {membersList} : {error}.")
             return False
 
 
@@ -228,37 +228,37 @@ def exportMembersFile(filePath, members):
 
         workbook.save(filePath)  # Puis on sauvegarde
         workbook.close()
-        logging.info(f"Succès de l'exportation du fichier {filePath}")
+        LogManager().addLog("update", LogManager.LOGTYPE_INFO, f"Succès de l'exportation du fichier {filePath}")
     except(Exception,) as error:
-        logging.error(f"Une erreur est survenue lors de l'exportation du fichier {filePath}.\n{error}")
+        LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Une erreur est survenue lors de l'exportation du fichier {filePath}.\n{error}")
 
 
 def exportMemberReceipts(members):
     for member in members:
         if member.hasValidAddress():
             try:  # Exportation des PDFs
-                exportedReceipts = _exportReceipts(member.receipts)
-            except(Exception,) as error:
-                logging.error(f"Une erreur est survenue lors de l'exportation des reçus de '{member.name} {member.surname}'")
+                receipts = member.receipts
+                if member.regularPaymentsReceipt is not None:
+                    receipts.append(member.regularPaymentsReceipt)
+                exportedReceipts = _exportReceipts(receipts)
 
-            try:  # Sauvegarde des reçus et des éventuelles remarques et tarifs
-                Save().addReceipts(exportedReceipts)
-                if member.notes is not None:
-                    Save().addMemberNotes(member.email, member.notes)
-                if member.rate != Save().defaultRate["value"]:  # Si ce n'est pas le tarif par défaut, on l'enregistre
-                    Save().addMembersRate(member.email, member.rate)
+                try:  # Sauvegarde des reçus exportés avec succès
+                    Save().addMemberReceipt(member.email, exportedReceipts)
+
+                except(Exception,) as error:
+                    LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Une erreur est survenue lors de l'enregistrement de '{member.name} {member.surname}' dans le fichier de sauvegarde.")
+
             except(Exception,) as error:
-                logging.error(f"Une erreur est survenue lors de l'enregistrement de '{member.name} {member.surname}' dans le fichier de sauvegarde.")
+                LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Une erreur inconnue est survenue lors de l'exportation des reçus de '{member.name} {member.surname}'")
+
         else:
-            logging.warning(
-                member.surname + ' ' + member.name + " n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
+            LogManager().addLog("update", LogManager.LOGTYPE_WARNING, f"{member.surname} {member.name}  n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
 
 
-
-def _exportReceipts(receipts):
+def _exportReceipts(receipts):  # TODO : Vérifier si erreur avant de faire exportedReceipts.append(receipt)
     paths = PathManager().getPaths()
 
-    reader = PdfReader(paths["PDFTemplate"])
+    reader = PdfReader(paths["assets"]["PDFTemplate"])
     writer = PdfWriter(clone_from=reader)
     # writer.set_need_appearances_writer(True)
 
@@ -272,37 +272,40 @@ def _exportReceipts(receipts):
     exportedReceipts = []
     for receipt in receipts:
         if receipt.canBeExported:
-            exportedReceipts.append(receipt)
             receiptDate = datetime.strptime(receipt.date, "%d/%m/%Y")
             year, month = str(receiptDate.year), str(receiptDate.month)
             directory = path.join(paths["recusFiscaux"], year, month)
+
+            isDirOK = True
             if not path.isdir(directory):
                 try:
                     Path(directory).mkdir(parents=True, exist_ok=True)
-                    logging.info(f"Dossier créé : {directory}")
+                    LogManager().addLog("update", LogManager.LOGTYPE_INFO, f"Dossier créé : {directory}")
                 except OSError as error:
-                    logging.error(f"Impossible de créer le dossier {directory} : {error}")
-            filepath = path.join(directory, f"{receipt.id}.pdf")
+                    LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Impossible de créer le dossier {directory} : {error}")
+                    isDirOK = False
 
-            # Vérifier si le reçu existe déjà et qu'il est identique. Doit également vérifier s'il existe bien dans le répertoire.
-            receiptData = receipt.toDict()
-            receiptDataStr = dumps(receiptData, sort_keys=True, default=str)  # JSON
-            newHash = md5(receiptDataStr.encode("utf-8")).hexdigest()
-            savedHash = None
-            if path.isfile(filepath):
-                savedHash = Save().getHashReceipt(receipt.id)
+            if isDirOK:
+                filepath = path.join(directory, f"{receipt.id}.pdf")
+                # Vérifier si le reçu existe déjà et qu'il est identique. Doit également vérifier s'il existe bien dans le répertoire.
+                receiptData = receipt.toDict()
+                receiptDataStr = dumps(receiptData, sort_keys=True, default=str)  # JSON
+                newHash = md5(receiptDataStr.encode("utf-8")).hexdigest()
+                savedHash = None
+                if path.isfile(filepath):
+                    savedHash = Save().getSavedReceiptHash(receipt.member.email, receipt.id)
+                if savedHash != newHash:
+                    writer.update_page_form_field_values(
+                        writer.pages[0],
+                        receiptData,
+                        auto_regenerate=False
+                    )
 
-            if savedHash != newHash:
-                writer.update_page_form_field_values(
-                    writer.pages[0],
-                    receiptData,
-                    auto_regenerate=False
-                )
+                    with open(filepath, "wb") as output_stream:
+                        writer.write(output_stream)
+                        LogManager().addLog("update", LogManager.LOGTYPE_INFO, f"Création du reçu '{receipt.id}'.")
 
-                with open(filepath, "wb") as output_stream:
-                    writer.write(output_stream)
-                    logging.info(f"Création du reçu '{receipt.id}'.")
-
+                exportedReceipts.append(receipt)
     return exportedReceipts
 
 
@@ -315,7 +318,8 @@ def importMembers():  # S'il y a plusieurs fois le même membre dans plusieurs l
     for listPath in memberListsPattern:
         workbook = load_workbook(filename=listPath)
         sheet = workbook.active
-        requiredCols = [0, 1, 2]  # Indices des colonnes à vérifier pour les valeurs non nulles
+        requiredCols = [0, 1, 2, 3]  # Indices des colonnes à vérifier pour les valeurs non nulles
+        year = int(str(sheet.cell(row=1, column=14).value).replace("Adh. ", ''))
         for row in sheet.iter_rows(min_row=2):
             if all(row[idx].value is not None for idx in requiredCols):
                 email = row[0].value
@@ -324,12 +328,19 @@ def importMembers():  # S'il y a plusieurs fois le même membre dans plusieurs l
                     member = {
                         "name": row[1].value,
                         "surname": row[2].value,
-                        "IDReceipts": IDReceipts
+                        "IDReceipts": IDReceipts,
+                        "years": [year]
                     }
                     members[email] = member
                 else:
-                    members[email]["IDReceipts"] = list(set(members[email]["IDReceipts"] + IDReceipts))
+                    members[email]["IDReceipts"] = list(set(members[email]["IDReceipts"] + IDReceipts))  # todo append ?
+                    members[email]["years"].append(year)
 
         workbook.close()
 
     return members
+
+
+"""def importReceipts():  # Depuis le fichier .save
+    return Save().receipts
+"""

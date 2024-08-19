@@ -1,5 +1,6 @@
-import logging
 import re
+
+from utils.LogManager import LogManager
 
 
 class Payment:
@@ -50,7 +51,7 @@ class Payment:
         else:
             self.phone = ''
             if phone != '':
-                logging.warning(f"Numéro de téléphone incorrect : '{phone}'")
+                LogManager().addLog("update", LogManager.LOGTYPE_WARNING, f"Numéro de téléphone incorrect : '{phone}'")
 
         amount = float(amount)
         if float(amount) > 0:

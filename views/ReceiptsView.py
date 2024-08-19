@@ -1,34 +1,61 @@
-import tkinter as tk
-from tkinter.ttk import Combobox
+from tkinter import END, Frame
+from tkinter.ttk import Notebook, Combobox, Treeview
+
+from utils.misc import sortTreeviewCol
 
 
-class ReceiptsView(tk.Frame):
+class ReceiptsView(Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
-
-        self.controller = controller()
+        self.controller = controller
         self.createWidgets()
         self.displayWidgets()
 
     def createWidgets(self):
-        # Dictionnaire associant des clés à des valeurs
-        membersCbxDict = self.controller.getKVMembersCbx()
+        def cbxCb(event):
+            self.controller.queryUpdate(
+                member=self.membersCbx.get(),
+                year=self.yearsCbx.get()
+            )
 
-        # Créer une Combobox avec les valeurs du dictionnaire
-        self.membersCbx = Combobox(self, values=list(membersCbxDict.values()))
+        def membersCbxCb(event):
+            selectedValue = self.membersCbx.get()
+            self.controller.memberSelected(selectedValue)  # Informer le contrôleur de la sélection
 
-        # Définir la valeur par défaut de la Combobox
-        self.membersCbx.set("Tous les adhérents")
+        def yearsCbxCb(event):
+            selectedValue = self.yearsCbx.get()
+            self.controller.yearSelected(selectedValue)
 
-        # Fonction appelée lorsque l'utilisateur sélectionne une valeur
-        def on_select(event):
-            selected_value = self.membersCbx.get()
-            # Récupérer la clé correspondant à la valeur sélectionnée
-            selected_key = next((k for k, v in membersCbxDict.items() if v == selected_value), None)
-            print(f"Clé sélectionnée: {selected_key}, Valeur: {selected_value}")
+        self.receiptsNtbk = Notebook(self)
+        self.regularsFr = Frame(self.receiptsNtbk)
+        self.irregularsFr = Frame(self.receiptsNtbk)
+        self.receiptsNtbk.add(self.irregularsFr, text='Dons ponctuels')
+        self.receiptsNtbk.add(self.regularsFr, text="Dons réguliers")
 
-        # Associer la fonction `on_select` à l'événement de sélection de la Combobox
-        self.membersCbx.bind("<<ComboboxSelected>>", on_select)
+        self.membersCbx = Combobox(self)
+        self.membersCbx.bind("<<ComboboxSelected>>", cbxCb)
+
+        self.yearsCbx = Combobox(self)
+        self.yearsCbx.bind("<<ComboboxSelected>>", cbxCb)
+
+        columns = [
+            {"id": "#0", "name": "Adhérent", "width": 150, "sort": False},
+            {"id": "date", "name": "Date", "width": 100, "sort": True, "sortType": "datetime"},
+            {"id": "receiptID", "name": "ID reçu", "width": 100, "sort": True},
+            {"id": "amount", "name": "Montant", "width": 100, "sort": True, "sortType": "float"},
+            {"id": "sent", "name": "Envoyé", "width": 100, "sort": True},
+        ]
+        self.receiptsIrregTrv = Treeview(self.irregularsFr, columns=[col["id"] for col in columns[1:]])
+        self.receiptsRegTrv = Treeview(self.regularsFr, columns=[col["id"] for col in columns[1:]])
+
+        for col in columns:
+            for treeview in [self.receiptsRegTrv, self.receiptsIrregTrv]:
+                treeview.column(col["id"], width=col["width"])
+                treeview.heading(col["id"], text=col["name"], command=lambda _col=col: sortTreeviewCol(treeview, _col, False))
 
     def displayWidgets(self):
+        self.receiptsNtbk.pack()
         self.membersCbx.pack()
+        self.yearsCbx.pack()
+        self.receiptsRegTrv.pack()
+        self.receiptsIrregTrv.pack()

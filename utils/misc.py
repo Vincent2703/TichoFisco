@@ -6,13 +6,16 @@ import subprocess
 from datetime import datetime
 from os.path import isfile
 
+from utils.LogManager import LogManager
+
 
 def saveHiddenFile(filename, content, binary=False):
     # Écrire le contenu dans le fichier
-    if not isfile(filename):
-        mode = "w+"
-    else:
-        mode = "r+"
+    if isfile(filename):
+        os.remove(filename)  # r+ ?
+
+    mode = "w+"
+
     if binary:
         mode += 'b'
     with open(filename, mode) as file:
@@ -22,9 +25,11 @@ def saveHiddenFile(filename, content, binary=False):
         # Définir l'attribut de fichier caché sous Windows
         FILE_ATTRIBUTE_HIDDEN = 0x02
         try:
-            ctypes.windll.kernel32.SetFileAttributesW(ctypes.create_unicode_buffer(str(filename)), FILE_ATTRIBUTE_HIDDEN)
+            ctypes.windll.kernel32.SetFileAttributesW(ctypes.create_unicode_buffer(str(filename)),
+                                                      FILE_ATTRIBUTE_HIDDEN)
         except Exception as e:
-            logging.error(f"Erreur lors de la définition de l'attribut caché : {e}")
+            LogManager().addLog("OS", LogManager.LOGTYPE_ERROR,
+                                f"Erreur lors de la définition de l'attribut caché : {e}")
     else:
         # Renommer le fichier pour qu'il commence par un point sous Linux
         if not filename.startswith('.'):
@@ -42,7 +47,7 @@ def openDir(path):
         elif OS == "Linux":
             subprocess.Popen(["xdg-open", path])
             return True
-    logging.error(f"Impossible d'ouvrir le dossier : '{path}'")
+    LogManager().addLog("OS", LogManager.LOGTYPE_ERROR, f"Impossible d'ouvrir le dossier : '{path}'")
     return False
 
 
@@ -63,3 +68,60 @@ def convertFrenchDate(frenchDateStr):  # TODO : check error
 
     # Convertir la chaîne modifiée en objet datetime
     return datetime.strptime(englishDateStr, "%B %d, %Y @ %I:%M %p")
+
+
+def centerTkinterWindow(win):  # From https://stackoverflow.com/a/10018670
+    win.update_idletasks()
+    width = win.winfo_width()
+    frm_width = win.winfo_rootx() - win.winfo_x()
+    win_width = width + 2 * frm_width
+    height = win.winfo_height()
+    titlebar_height = win.winfo_rooty() - win.winfo_y()
+    win_height = height + titlebar_height + frm_width
+    x = win.winfo_screenwidth() // 2 - win_width // 2
+    y = win.winfo_screenheight() // 2 - win_height // 2
+    win.geometry('{}x{}+{}+{}'.format(width, height, x, y))
+    win.deiconify()
+
+
+def sortTreeviewCol(trv, col, reverse=False):  # Based on https://stackoverflow.com/a/61495299
+    if not col["sort"]:
+        return
+
+    colID = col["id"]
+    sortType = None
+    if "sortType" in col:
+        sortType = col["sortType"]
+
+    # Liste des tuples (valeur, clé) pour chaque enfant du Treeview
+    l = [(trv.set(k, colID), k) for k in trv.get_children('')]
+
+    # Conversion des valeurs selon le type de tri
+    for i, (val, k) in enumerate(l):
+        if sortType == "datetime":
+            try:
+                # Convertir la valeur en datetime pour le tri
+                l[i] = (datetime.strptime(val, "%d/%m/%Y"), k)
+            except ValueError:
+                # Gérer les dates invalides en les mettant au min
+                l[i] = (datetime.min, k)
+        elif sortType == "float":
+            try:
+                # Convertir la valeur en float pour le tri
+                l[i] = (float(val), k)
+            except ValueError:
+                # Gérer les flottants invalides en les mettant au min
+                l[i] = (float('-inf'), k)
+        else:
+            # Pour les autres types, on garde la valeur telle quelle
+            l[i] = (val, k)
+
+    # Trier la liste basée sur les valeurs converties
+    l.sort(reverse=reverse)
+
+    # Réorganiser les items dans le Treeview selon l'ordre trié
+    for index, (val, k) in enumerate(l):
+        trv.move(k, '', index)
+
+    # Configurer le header pour permettre de trier dans l'autre sens lors du prochain clic
+    trv.heading(colID, command=lambda: sortTreeviewCol(trv, col, not reverse))

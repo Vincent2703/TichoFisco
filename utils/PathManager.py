@@ -2,8 +2,10 @@ import logging
 from glob import glob
 from pathlib import Path
 
+from utils.LogManager import LogManager
 
-class PathManager:
+
+class PathManager: # TODO : Singleton Pattern !
     def __init__(self):
         self._currentPath = Path.cwd()
         self._assetsPath = self._currentPath / "assets"
@@ -20,7 +22,6 @@ class PathManager:
         }
 
         self.dirFiles = {
-            "PDFTemplate": self._assetsPath / "modeleRecuTichodrome.pdf",
             "save": self._currentPath / ".save",
             "memberListsPattern": glob(str(self.dirPaths["listesAdherents"] / "*.xlsx")),
             "paymentFilesPatterns": {
@@ -28,6 +29,14 @@ class PathManager:
                 "paypal": glob(str(self.dirPaths["paiementsPaypal"] / "*.xlsx")),
                 "virEspChq": glob(str(self.dirPaths["paiementsVirEspChq"] / "*.xlsx")),
                 "cb": glob(str(self.dirPaths["paiementsCB"] / "*.csv"))
+            },
+            "assets": {
+                "PDFTemplate": self._assetsPath / "modeleRecuTichodrome.pdf",
+                "icons": {
+                    "info": self._assetsPath / "icons/info.png",
+                    "warning": self._assetsPath / "icons/warning.png",
+                    "error": self._assetsPath / "icons/error.png"
+                }
             }
         }
 
@@ -38,9 +47,10 @@ class PathManager:
             if not Path.is_dir(path):
                 try:
                     path.mkdir(parents=True, exist_ok=True)
-                    logging.info(f"Dossier créé : {path}")
+
+                    LogManager().addLog("OS", LogManager.LOGTYPE_INFO, f"Dossier créé : {path}")
                 except OSError as error:
-                    logging.error(f"Impossible de créer le dossier {path} : {error}")
+                    LogManager().addLog("OS", LogManager.LOGTYPE_ERROR, f"Impossible de créer le dossier {path} : {error}")
 
     def getPaths(self):
         return self.dirPaths | self.dirFiles  # merge

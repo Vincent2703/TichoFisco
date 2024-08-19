@@ -4,14 +4,19 @@ from models.Save import Save
 
 
 class Receipt:
-    def __init__(self, member, amount, source, date, refPayment):
+    def __init__(self, member, amount, source, date, refPayment, regular=False):
         self.member = member
         self.refPayment = str(refPayment)
 
+        self.regular = regular
+
         num = 1
         baseID = datetime.strptime(date, "%d/%m/%Y").strftime("%y%m%d") + member.surname[0].upper() + member.name[0].upper()
-        while Save().isIDReceiptExistsInCache(baseID+str(num)):
-            if Save().getCachedReceiptRefPaymentByID(baseID+str(num)) != self.refPayment:
+        if self.regular:
+            baseID += 'R'  # Pour régulier
+        memberEmail = member.email
+        while Save().isMemberReceiptExported(memberEmail, baseID+str(num)):
+            if Save().getRefPaymentReceipt(memberEmail, baseID+str(num)) != self.refPayment:
                 num += 1
             else:
                 break

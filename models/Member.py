@@ -10,7 +10,8 @@ class Member:
         self.name = name
         self.surname = surname
 
-        self.receipts = []
+        self.receipts = []  # Seulement pour les paiements ponctuels
+        self.regularPaymentsReceipt = None
         self.status = None
         self.lastMembership = None
         self.regular = None
@@ -52,19 +53,32 @@ class Member:
             self.status = "NA"
         elif self.status == "NA":
             self.status = "DON-ADH"
-        receipt = Receipt(self, payment.amount, payment.source, payment.date, payment.refPayment)
-        self.receipts.append(receipt)
-        Save().cacheThisReceipt(receipt)
+
+        if not payment.regular:
+            receipt = Receipt(self, payment.amount, payment.source, payment.date, payment.refPayment, False)
+            if receipt.canBeExported:
+                self.receipts.append(receipt)
+        else:
+            if self.regularPaymentsReceipt is None:
+                self.regularPaymentsReceipt = Receipt(self, payment.amount, payment.source, payment.date, payment.refPayment, True)
+            else:
+                self.regularPaymentsReceipt.amount += float(payment.amount)
+                self.regularPaymentsReceipt.source, self.regularPaymentsReceipt.date, self.regularPaymentsReceipt.refPayment = \
+                    payment.source, payment.date, payment.refPayment
 
     def isThisMember(self, email, name, surname):
-        return (email.casefold() == self.email.casefold()) or (
-                name.casefold() == self.name.casefold() and surname.casefold() == self.surname.casefold())
+        return (email.casefold() == self.email.casefold()) or (name.casefold() == self.name.casefold() and surname.casefold() == self.surname.casefold())
 
     def hasValidAddress(self):
         return self.address is not None and self.postalCode is not None and self.city is not None
 
     def toArray(self):
-        return [self.email, self.name, self.surname, ";".join([receipt.id for receipt in self.receipts]), self.status,
+        receipts = self.receipts
+        if self.regularPaymentsReceipt is not None:
+            receipts.append(self.regularPaymentsReceipt)
+        receiptsId = ";".join([receipt.id for receipt in receipts])
+
+        return [self.email, self.name, self.surname, receiptsId, self.status,
                 self.lastMembership, self.regular, self.sendingMail, self.address, self.postalCode, self.city,
                 self.phone,
                 self.amounts["paidMembershipLastYear"], self.amounts["paidMembershipYear"],

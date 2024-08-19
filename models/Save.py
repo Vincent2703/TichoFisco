@@ -22,9 +22,10 @@ class Save:
         if not self._initialized:
             self.saveFilePath = PathManager().getPaths()["save"]
 
-            self.receipts = {}
-            self.receiptsCache = {}  # Ids des reçus mis à jour/créés. Permet de savoir quels reçus on doit supprimer de la sauvegarde.
-            self.members = {}
+            # self.receipts = {}
+            # self.receiptsCache = {}  # Ids des reçus mis à jour/créés. Permet de savoir quels reçus on doit supprimer de la sauvegarde.
+            self.members = {}  # Ce dict est rempli au lancement du prog grâce au fichier .save
+            self.exportedMembers = {}  # Ce dict est rempli lors de la mise à jour des infos. C'est lui qui sera exporté à la fin
             self.settings = {}
             if os.path.isfile(self.saveFilePath):
                 self.load()
@@ -38,16 +39,10 @@ class Save:
                     ]
                 }
                 self.settings = defaultSettings
-                """JSONContent = orjson.dumps({
-                    "receipts": {},
-                    "members": {},
-                    "settings": self.settings
-                })
-                saveHiddenFile(self.saveFilePath, JSONContent, True)"""
+
             self.defaultRate = self._getDefaultRate()
 
             self._initialized = True
-
 
     def _getDefaultRate(self):
         for rate in self.settings["rates"]:
@@ -66,56 +61,46 @@ class Save:
             with open(self.saveFilePath, 'r') as saveFile:
                 saveContent = saveFile.read()
                 saveJSON = orjson.loads(saveContent)  # TODO: Manage errors
-                self.receipts = saveJSON["receipts"]
                 self.members = saveJSON["members"]
                 self.settings = saveJSON["settings"]
 
-    def cacheThisReceipt(self, receipt):
-        self.receiptsCache[receipt.id] = receipt.refPayment
-
-    def addReceipts(self, receipts):
+    def addMemberReceipt(self, memberEmail, receipts):
         for receipt in receipts:
             receiptData = receipt.toDict()
-            receiptDataStr = json.dumps(receiptData, sort_keys=True, default=str)
-            self.receipts[receipt.id] = {
+            receiptDataStr = json.dumps(receiptData, sort_keys=True, default=str)  # TODO : replace by orjson
+            if not self._isMemberExported(memberEmail):
+                self.exportedMembers[memberEmail] = {"receipts": {}}
+
+            self.exportedMembers[memberEmail]["receipts"][receipt.id] = {
                 "hash": hashlib.md5(receiptDataStr.encode("utf-8")).hexdigest(),
-                "refPayment": receipt.refPayment,
+                "regular": receipt.regular,
+                "amount": receipt.amount,
+                "refPayment": receipt.refPayment,  # TODO Pourrait être un tableau si reg
                 "canBeExported": receipt.canBeExported,
                 "sent": False
             }
 
-    def addMemberNotes(self, memberEmail, memberNotes):
-        if memberEmail not in self.members:
-            self._addMember(memberEmail)
-        self.members[memberEmail]["notes"] = memberNotes
+    def _isMemberExported(self, memberEmail):
+        return memberEmail in self.exportedMembers
 
-    def addMembersRate(self, memberEmail, memberRate):
-        if memberEmail not in self.members:
-            self._addMember(memberEmail)
-        self.members[memberEmail]["rate"] = memberRate
+    def isMemberReceiptExported(self, memberEmail, idReceipt):
+        return self._isMemberExported(memberEmail) and idReceipt in self.members[memberEmail]["receipts"]
 
-    def _addMember(self, memberEmail):
-        self.members[memberEmail] = {"notes": '', "rate": self.defaultRate}
+    def getRefPaymentReceipt(self, memberEmail, idReceipt):
+        if self.isMemberReceiptExported(memberEmail, idReceipt):
+            return self.exportedMembers[memberEmail]["receipts"][idReceipt]["refPayment"]
 
-    def isIDReceiptExistsInCache(self, idReceipt):
-        return idReceipt in self.receiptsCache
-
-    def getCachedReceiptRefPaymentByID(self, idReceipt):
-        if self.isIDReceiptExistsInCache(idReceipt):
-            return self.receiptsCache[idReceipt]
-        return None
-
-    def getHashReceipt(self, idReceipt):
-        if idReceipt in self.receipts:
-            return self.receipts[idReceipt]["hash"]
+    def getSavedReceiptHash(self, memberEmail, idReceipt):
+        if memberEmail in self.members:
+            if idReceipt in self.members[memberEmail]["receipts"]:
+                return self.members[memberEmail]["receipts"][idReceipt]["hash"]
         return None
 
     def save(self):
-        receiptsToSave = {id: self.receipts[id] for id in self.receiptsCache if id in self.receipts}
-
         JSONContent = orjson.dumps({
-            "receipts": receiptsToSave,
-            "members": self.members,
+            "members": self.exportedMembers,
             "settings": self.settings
         })
         saveHiddenFile(self.saveFilePath, JSONContent, binary=True)
+
+        self.members = self.exportedMembers

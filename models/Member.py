@@ -41,30 +41,45 @@ class Member:
             self.phone = phone
 
     def addPayment(self, payment):
-        self.amounts["totalYear"] += payment.amount
+        paymentAmount = float(payment.amount)
+
+        self.amounts["totalYear"] += paymentAmount
         self.lastTypePayment = payment.source
         self.lastPayment = datetime.strptime(payment.date, "%d/%m/%Y")
+
+        regularPayment = payment.regular
         if self.regular is None:
-            self.regular = payment.regular
-        elif self.regular != "P&R" and self.regular != payment.regular:
-            self.regular = "P&R"
+            if regularPayment and (payment.amount >= 15 or (self.regularPaymentsReceipt is not None and self.regularPaymentsReceipt.amount + payment.amount >= 15)):
+                self.regular = True
+            elif not regularPayment:
+                self.regular = False
+        else:
+            if not regularPayment:
+                if self.regular:
+                    self.regular = "P&R"
+            else:
+                if self.regular is False:
+                    if payment.amount >= 15 or (self.regularPaymentsReceipt is not None and self.regularPaymentsReceipt.amount + payment.amount >= 15):
+                        self.regular = "P&R"
 
         if self.status is None:
             self.status = "NA"
         elif self.status == "NA":
             self.status = "DON-ADH"
 
-        if not payment.regular:
-            receipt = Receipt(self, payment.amount, payment.source, payment.date, payment.refPayment, False)
+        if payment.regular:
+            if self.regularPaymentsReceipt is None:
+                self.regularPaymentsReceipt = Receipt(self, paymentAmount, payment.source, payment.date,
+                                                      payment.refPayment, True)
+            else:
+                self.regularPaymentsReceipt.amount += paymentAmount
+                self.regularPaymentsReceipt.source = payment.source
+                self.regularPaymentsReceipt.date = payment.date
+                self.regularPaymentsReceipt.refPayment = payment.refPayment
+        else:
+            receipt = Receipt(self, paymentAmount, payment.source, payment.date, payment.refPayment, False)
             if receipt.canBeExported:
                 self.receipts.append(receipt)
-        else:
-            if self.regularPaymentsReceipt is None:
-                self.regularPaymentsReceipt = Receipt(self, payment.amount, payment.source, payment.date, payment.refPayment, True)
-            else:
-                self.regularPaymentsReceipt.amount += float(payment.amount)
-                self.regularPaymentsReceipt.source, self.regularPaymentsReceipt.date, self.regularPaymentsReceipt.refPayment = \
-                    payment.source, payment.date, payment.refPayment
 
     def isThisMember(self, email, name, surname):
         return (email.casefold() == self.email.casefold()) or (name.casefold() == self.name.casefold() and surname.casefold() == self.surname.casefold())
@@ -74,7 +89,7 @@ class Member:
 
     def toArray(self):
         receipts = self.receipts
-        if self.regularPaymentsReceipt is not None:
+        if self.regularPaymentsReceipt is not None and self.regularPaymentsReceipt.amount >= 15:
             receipts.append(self.regularPaymentsReceipt)
         receiptsId = ";".join([receipt.id for receipt in receipts])
 

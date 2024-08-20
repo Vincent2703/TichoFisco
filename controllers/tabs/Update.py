@@ -133,8 +133,7 @@ class Update:
                 membershipThisYear = min(restToPay, total)
 
                 membershipNextYear = 0
-                if len(member.receipts) > 0 and datetime.strptime(member.receipts[-1].date,
-                                                                  "%d/%m/%Y").month >= 9 and total >= member.rate:
+                if len(member.receipts) > 0 and datetime.strptime(member.receipts[-1].date, "%d/%m/%Y").month >= 9 and total >= member.rate:
                     membershipNextYear = min(restToPay, total - membershipThisYear)
                     member.status = "RAA"
 

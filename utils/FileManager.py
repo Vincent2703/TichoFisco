@@ -288,9 +288,8 @@ def _exportReceipts(receipts):  # TODO : Vérifier si erreur avant de faire expo
             if isDirOK:
                 filepath = path.join(directory, f"{receipt.id}.pdf")
                 # Vérifier si le reçu existe déjà et qu'il est identique. Doit également vérifier s'il existe bien dans le répertoire.
-                receiptData = receipt.toDict()
-                receiptDataStr = dumps(receiptData, sort_keys=True, default=str)  # JSON
-                newHash = md5(receiptDataStr.encode("utf-8")).hexdigest()
+                receiptData = receipt.getDataDict()
+                newHash = receipt.getHash()
                 savedHash = None
                 if path.isfile(filepath):
                     savedHash = Save().getSavedReceiptHash(receipt.member.email, receipt.id)

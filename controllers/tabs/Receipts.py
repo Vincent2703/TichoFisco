@@ -34,9 +34,9 @@ class Receipts:
 
     def _setMembersCbxValues(self, members):
         membersList = list(members.values())
-        membersList.insert(0, "Tous les adhérents")
+        membersList.insert(0, ALL_MEMBERS)
         self.view.membersCbx["values"] = membersList
-        self.view.membersCbx.set("Tous les adhérents")  # TODO : set by index
+        self.view.membersCbx.set(ALL_MEMBERS)
 
     def _setReceiptsTrvsValues(self, receipts):
         # Suppression des données existantes dans les Treeviews
@@ -55,10 +55,15 @@ class Receipts:
                 self.view.receiptsIrregTrv.insert('', END, text=email,
                                              values=(receipt["date"], id, receipt["amount"], receipt["sent"]))
 
+        nbReceipts = self._getNbReceipts(receipts)
+        self._setNbReceiptsNtbkTab("regulars", nbReceipts["regulars"])
+        self._setNbReceiptsNtbkTab("irregulars", nbReceipts["irregulars"])
+
     def _setYearsCbxValues(self, years):
-        years.insert(0, "Toutes")
+        if years[0] != ALL_YEARS:
+            years.insert(0, ALL_YEARS)
         self.view.yearsCbx["values"] = years
-        self.view.yearsCbx.set("Toutes")  # TODO : set by index
+        self.view.yearsCbx.set(ALL_YEARS)
 
     def _getMembersList(self):
         return importMembers()
@@ -123,13 +128,27 @@ class Receipts:
             receipts = self._getReceiptsByEmail(memberEmail)
             self._setYearsCbxValues(self.members[memberEmail]["years"])
 
-        # Filtrage des reçus par année si une année spécifique est sélectionnée
+        # Filtrage des reçus par an si une année spécifique est sélectionnée
         if year != ALL_YEARS:
             receipts = self._filterReceiptsByYear(receipts, year)
 
         self._setReceiptsTrvsValues(receipts)
         self.view.membersCbx.set(member)
         self.view.yearsCbx.set(year)
+
+
+    def _getNbReceipts(self, receipts):
+        nbReceipts = {"regulars": 0, "irregulars": 0}
+        for regStatus, members in receipts.items():
+            for email, memberReceipts in members.items():
+                nbReceipts[regStatus] += len(memberReceipts)
+        return nbReceipts
+
+    def _setNbReceiptsNtbkTab(self, regStatus, nb):
+        if regStatus == "irregulars":
+            self.view.receiptsNtbk.tab(0, text=f"Dons ponctuels ({nb})")
+        elif regStatus == "regulars":
+            self.view.receiptsNtbk.tab(1, text=f"Dons réguliers ({nb})")
 
     def _filterReceiptsByYear(self, receipts, year):
         filteredReceipts = {"regulars": {}, "irregulars": {}}

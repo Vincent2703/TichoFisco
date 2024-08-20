@@ -66,13 +66,12 @@ class Save:
 
     def addMemberReceipt(self, memberEmail, receipts):
         for receipt in receipts:
-            receiptData = receipt.toDict()
-            receiptDataStr = json.dumps(receiptData, sort_keys=True, default=str)  # TODO : replace by orjson
+            hash = receipt.getHash()
             if not self._isMemberExported(memberEmail):
                 self.exportedMembers[memberEmail] = {"receipts": {}}
 
             self.exportedMembers[memberEmail]["receipts"][receipt.id] = {
-                "hash": hashlib.md5(receiptDataStr.encode("utf-8")).hexdigest(),
+                "hash": hash,
                 "regular": receipt.regular,
                 "amount": receipt.amount,
                 "refPayment": receipt.refPayment,  # TODO Pourrait être un tableau si reg

@@ -1,5 +1,4 @@
 import ctypes
-import logging
 import os.path
 import platform
 import subprocess
@@ -51,6 +50,22 @@ def openDir(path):
     return False
 
 
+def openFile(path):
+    path = os.path.normpath(path)
+
+    if os.path.isfile(path):
+        #todo : try except
+        OS = platform.system()
+        if OS == "Windows":
+            os.startfile(path)
+            return True
+        elif OS == "Linux":
+            subprocess.call(["xdg-open", path])
+            return True
+    LogManager().addLog("OS", LogManager.LOGTYPE_ERROR, f"Impossible d'ouvrir le fichier : '{path}'")
+    return False
+
+
 def convertFrenchDate(frenchDateStr):  # TODO : check error
     # Dictionnaire pour mapper les mois français aux mois anglais
     frenchToEnglishMonths = {
@@ -84,7 +99,7 @@ def centerTkinterWindow(win):  # From https://stackoverflow.com/a/10018670
     win.deiconify()
 
 
-def sortTreeviewCol(trv, col, reverse=False):  # Based on https://stackoverflow.com/a/61495299
+def sortTreeviewCol(trv, col, reverse=False):  # Fonction basée sur https://stackoverflow.com/a/61495299
     if not col["sort"]:
         return
 

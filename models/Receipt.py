@@ -1,4 +1,7 @@
 from datetime import datetime
+from hashlib import md5
+
+from orjson import orjson
 
 from models.Save import Save
 
@@ -23,7 +26,7 @@ class Receipt:
         self.id = baseID+str(num)
 
         self.amount = float(amount)
-        self.canBeExported = self.amount >= 15
+        self.canBeExported = self.amount >= 15  # TODO : const dans settings
         self.date = date
         if source == "helloAsso":
             self.source = "Hello Asso"
@@ -34,9 +37,9 @@ class Receipt:
         else:
             self.source = source
 
-    def toDict(self):  # private ?
+    def getDataDict(self, editionDate=True):
         member = self.member
-        return {
+        dict = {
             "idReceipt": "ID reçu : " + self.id,
             "name": member.name + ' ' + member.surname,
             "address": member.address,
@@ -46,5 +49,13 @@ class Receipt:
             "paymentDate": self.date,
             "paymentYear": str(datetime.strptime(self.date, "%d/%m/%Y").year),
             "paymentSource": self.source,
-            "editionDate": datetime.now().strftime("%d/%m/%Y")
         }
+        if editionDate:
+            dict["editionDate"] = datetime.now().strftime("%d/%m/%Y")
+        return dict
+
+    def getHash(self):
+        dict = self.getDataDict(editionDate=False)
+        json = orjson.dumps(dict)
+        hash = md5(json).hexdigest()
+        return hash

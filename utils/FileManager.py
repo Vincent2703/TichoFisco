@@ -18,6 +18,7 @@ from models.Save import Save
 from utils import styles, misc
 from utils.LogManager import LogManager
 from utils.PathManager import PathManager
+from utils.Thunderbird import Thunderbird
 
 
 def getDataFromPaymentsFile(path, source):
@@ -27,7 +28,8 @@ def getDataFromPaymentsFile(path, source):
         if newPayment.isValid:
             payments.append(payment)
         else:
-            LogManager().addLog("update", LogManager.LOGTYPE_WARNING, f"Impossible de traiter le paiement '{payment.source.upper()}' venant de '{payment.name} {payment.surname}'. Référence du paiement : '{payment.refPayment}'.\nRaison -> {payment.notValidCause}")
+            LogManager().addLog("update", LogManager.LOGTYPE_WARNING,
+                                f"Impossible de traiter le paiement '{payment.source.upper()}' venant de '{payment.name} {payment.surname}'. Référence du paiement : '{payment.refPayment}'.\nRaison -> {payment.notValidCause}")
 
     if source != "cb":
         workbook = load_workbook(filename=path)
@@ -114,7 +116,8 @@ def getDataFromPaymentsFile(path, source):
         requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant",
                         "Carte de crédit/débit - État "]
         for row in csvContent:
-            if all(row[key] is not None for key in requiredCols) and row["Carte de crédit/débit - État "].casefold() == "completed":
+            if all(row[key] is not None for key in requiredCols) and row[
+                "Carte de crédit/débit - État "].casefold() == "completed":
                 newPayment = Payment(
                     email=row["E-mail"],
                     name=row["Nom"],
@@ -172,7 +175,8 @@ def initMembersFile(year):  # Création du fichier ou réinitialisation
             LogManager().addLog("update", LogManager.LOGTYPE_INFO, f"Fichier {membersList} créé.")
             return sheet
         except OSError as error:
-            LogManager().addLog("error", LogManager.LOGTYPE_ERROR, f"Impossible de créer le fichier {membersList} : {error}.")
+            LogManager().addLog("error", LogManager.LOGTYPE_ERROR,
+                                f"Impossible de créer le fichier {membersList} : {error}.")
             return False
     else:  # Sinon remettre tout à zero
         try:
@@ -184,7 +188,8 @@ def initMembersFile(year):  # Création du fichier ou réinitialisation
             workbook.close()
             return sheet
         except OSError as error:
-            LogManager().addLog("error", LogManager.LOGTYPE_ERROR, f"Impossible de créer le fichier {membersList} : {error}.")
+            LogManager().addLog("error", LogManager.LOGTYPE_ERROR,
+                                f"Impossible de créer le fichier {membersList} : {error}.")
             return False
 
 
@@ -208,7 +213,8 @@ def exportMembersFile(filePath, members):
         workbook = load_workbook(filename=filePath)
         sheet = workbook.active
 
-        members = sorted(members, key=attrgetter("lastPayment"))  # Trie des membres selon la date du dernier paiement, par ordre chronologique
+        members = sorted(members, key=attrgetter(
+            "lastPayment"))  # Trie des membres selon la date du dernier paiement, par ordre chronologique
         for member in members:  # On ajoute chaque membre au fichier Excel
             sheet.append(member.toArray())
 
@@ -230,7 +236,8 @@ def exportMembersFile(filePath, members):
         workbook.close()
         LogManager().addLog("update", LogManager.LOGTYPE_INFO, f"Succès de l'exportation du fichier {filePath}")
     except(Exception,) as error:
-        LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Une erreur est survenue lors de l'exportation du fichier {filePath}.\n{error}")
+        LogManager().addLog("update", LogManager.LOGTYPE_ERROR,
+                            f"Une erreur est survenue lors de l'exportation du fichier {filePath}.\n{error}")
 
 
 def exportMemberReceipts(members):
@@ -246,13 +253,16 @@ def exportMemberReceipts(members):
                     Save().addMemberReceipt(member.email, exportedReceipts)
 
                 except(Exception,) as error:
-                    LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Une erreur est survenue lors de l'enregistrement de '{member.name} {member.surname}' dans le fichier de sauvegarde.")
+                    LogManager().addLog("update", LogManager.LOGTYPE_ERROR,
+                                        f"Une erreur est survenue lors de l'enregistrement de '{member.name} {member.surname}' dans le fichier de sauvegarde.")
 
             except(Exception,) as error:
-                LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Une erreur inconnue est survenue lors de l'exportation des reçus de '{member.name} {member.surname}'")
+                LogManager().addLog("update", LogManager.LOGTYPE_ERROR,
+                                    f"Une erreur inconnue est survenue lors de l'exportation des reçus de '{member.name} {member.surname}'")
 
         else:
-            LogManager().addLog("update", LogManager.LOGTYPE_WARNING, f"{member.surname} {member.name}  n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
+            LogManager().addLog("update", LogManager.LOGTYPE_WARNING,
+                                f"{member.surname} {member.name}  n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
 
 
 def _exportReceipts(receipts):  # TODO : Vérifier si erreur avant de faire exportedReceipts.append(receipt)
@@ -282,7 +292,8 @@ def _exportReceipts(receipts):  # TODO : Vérifier si erreur avant de faire expo
                     Path(directory).mkdir(parents=True, exist_ok=True)
                     LogManager().addLog("update", LogManager.LOGTYPE_INFO, f"Dossier créé : {directory}")
                 except OSError as error:
-                    LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Impossible de créer le dossier {directory} : {error}")
+                    LogManager().addLog("update", LogManager.LOGTYPE_ERROR,
+                                        f"Impossible de créer le dossier {directory} : {error}")
                     isDirOK = False
 
             if isDirOK:
@@ -340,6 +351,34 @@ def importMembers():  # S'il y a plusieurs fois le même membre dans plusieurs l
     return members
 
 
-"""def importReceipts():  # Depuis le fichier .save
-    return Save().receipts
-"""
+def importReceipts():  # Obtient les données venant de Save + Thunderbird (pour les status des mails)
+    thunderbirdEmails = Thunderbird().getStatusEmails()
+    allMembersInSave = Save().members
+    receipts = {}
+    for email, member in allMembersInSave.items():
+        receipts[email] = {}
+        if "receipts" in member:
+            for id, receipt in member["receipts"].items():
+                datetimeReceipt = datetime.strptime(id[:6], "%y%m%d")
+                dateStrReceipt = datetimeReceipt.strftime("%d/%m/%Y")
+                receipt["date"] = dateStrReceipt
+                receipts[email][id] = receipt
+                if id in thunderbirdEmails:
+                    statusID = thunderbirdEmails[id]
+                else:
+                    statusID = 0
+
+                if statusID == 0:
+                    statusTxt = "Non préparé"
+                elif statusID == 1:
+                    statusTxt = "Préparé"
+                elif statusID == 2:
+                    statusTxt = "Envoyé"
+                elif statusID == 3:
+                    statusTxt = "Supprimé"
+                else:
+                    statusTxt = '?'
+
+                receipts[email][id]["emailStatus"] = statusTxt
+
+    return receipts

@@ -3,6 +3,7 @@ from tkinter.ttk import Progressbar, Button, Frame
 
 from utils.LogManager import LogManager
 from utils.MessageBoxDetails import MessageBoxDetails
+from utils.ProgressBarManager import ProgressBarManager
 
 
 class UpdateView(Frame):
@@ -17,7 +18,7 @@ class UpdateView(Frame):
         self.displayWidgets()
 
     def createWidgets(self):
-        def cbUpdateBtn():  # A mettre dans le modèle ?
+        def cbUpdateBtn():
             infoStatus, warningStatus, errorStatus = LogManager.LOGTYPE_INFO, LogManager.LOGTYPE_WARNING, LogManager.LOGTYPE_ERROR
             resProcess = self.controller.processPayments()
             if resProcess == infoStatus:
@@ -40,13 +41,11 @@ class UpdateView(Frame):
         self.updateBtn = Button(self, text="Mettre à jour", command=cbUpdateBtn)
         self.openDirBtn = Button(self, text="Ouvrir le dossier", command=cbOpenDirBtn)
 
-        self.updatePrgb = Progressbar(self, variable=self.progVal)
-        self.updateLbl = Label(self, textvariable=self.progTxt)
+        self.progressBar = ProgressBarManager(self)
 
     def displayWidgets(self):
         self.updateBtn.pack()
         self.openDirBtn.pack()
 
-        self.updatePrgb.pack(padx=20, pady=10, side=LEFT, fill=X, expand=True)
-        self.updateLbl.pack(padx=20, pady=10, side=RIGHT)
+        self.progressBar.pack()
 

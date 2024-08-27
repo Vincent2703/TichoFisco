@@ -1,10 +1,9 @@
-import hashlib
-import json
 import os
 from os.path import isfile
 
 import orjson as orjson
 
+from utils.LogManager import LogManager
 from utils.PathManager import PathManager
 from utils.misc import saveHiddenFile
 
@@ -22,8 +21,8 @@ class Save:
         if not self._initialized:
             self.saveFilePath = PathManager().getPaths()["save"]
 
-            # self.receipts = {}
-            # self.receiptsCache = {}  # Ids des reçus mis à jour/créés. Permet de savoir quels reçus on doit supprimer de la sauvegarde.
+            self.idReceipts = []  # Ce tableau contiendra l'ensemble des identifiants des reçus générés. Permet de générer une chaîne unique
+
             self.members = {}  # Ce dict est rempli au lancement du prog grâce au fichier .save
             self.exportedMembers = {}  # Ce dict est rempli lors de la mise à jour des infos. C'est lui qui sera exporté à la fin
             self.settings = {}
@@ -45,16 +44,12 @@ class Save:
             self._initialized = True
 
     def _getDefaultRate(self):
-        for rate in self.settings["rates"]:
-            if "default" in rate and rate["default"] is True:
-                return rate
-        return None
+        return next((rate for rate in self.settings.get("rates", []) if rate.get("default")), None)
 
     def getRateByName(self, name):
-        for rate in self.settings["rates"]:
-            if rate["name"].casefold().replace(' ', '') == name.casefold().replace(' ', ''):
-                return rate
-        return None
+        normalizedName = name.casefold().replace(' ', '')
+        return next((rate for rate in self.settings.get("rates", [])
+                     if rate["name"].casefold().replace(' ', '') == normalizedName), None)
 
     def load(self):
         if isfile(self.saveFilePath) and os.stat(self.saveFilePath).st_size > 0:
@@ -76,30 +71,41 @@ class Save:
                 "amount": receipt.amount,
                 "refPayment": receipt.refPayment,  # TODO Pourrait être un tableau si reg
                 "canBeExported": receipt.canBeExported,
-                "sent": False
+                #"emailStatus": None
             }
 
     def _isMemberExported(self, memberEmail):
         return memberEmail in self.exportedMembers
 
     def isMemberReceiptExported(self, memberEmail, idReceipt):
-        return self._isMemberExported(memberEmail) and idReceipt in self.members[memberEmail]["receipts"]
+        return self._isMemberExported(memberEmail) and idReceipt in self.exportedMembers[memberEmail]["receipts"]
 
     def getRefPaymentReceipt(self, memberEmail, idReceipt):
-        if self.isMemberReceiptExported(memberEmail, idReceipt):
-            return self.exportedMembers[memberEmail]["receipts"][idReceipt]["refPayment"]
+        return self.exportedMembers.get(memberEmail, {}).get("receipts", {}).get(idReceipt, {}).get("refPayment")
+
+    def updateMembersReceiptsEmailStatus(self, receipts):
+        if len(self.exportedMembers) == 0:
+            self.exportedMembers = self.members
+
+        for receipt in receipts:
+            email = receipt["emailMember"]
+            idReceipt = receipt["idReceipt"]
+            emailStatus = receipt["emailStatus"]
+            if self.isMemberReceiptExported(email, idReceipt):
+                self.exportedMembers[email]["receipts"][idReceipt]["emailStatus"] = emailStatus
+        self.save()
 
     def getSavedReceiptHash(self, memberEmail, idReceipt):
-        if memberEmail in self.members:
-            if idReceipt in self.members[memberEmail]["receipts"]:
-                return self.members[memberEmail]["receipts"][idReceipt]["hash"]
-        return None
+        return self.members.get(memberEmail, {}).get("receipts", {}).get(idReceipt, {}).get("hash")
 
     def save(self):
-        JSONContent = orjson.dumps({
-            "members": self.exportedMembers,
-            "settings": self.settings
-        })
-        saveHiddenFile(self.saveFilePath, JSONContent, binary=True)
-
-        self.members = self.exportedMembers
+        try:
+            # On enregistre le fichier .save
+            jsonContent = orjson.dumps({
+                "members": self.exportedMembers,
+                "settings": self.settings
+            })
+            saveHiddenFile(self.saveFilePath, jsonContent, binary=True)
+            self.members = self.exportedMembers
+        except Exception as e:
+            LogManager().addLog("OS", f"Erreur lors de la sauvegarde : {e}")

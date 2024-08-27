@@ -9,26 +9,23 @@ from models.Save import Save
 from utils.FileManager import initMembersFile, getDataFromPaymentsFile, exportMembersFile, exportMemberReceipts
 from utils.LogManager import LogManager
 from utils.PathManager import PathManager
+from utils.Thunderbird import Thunderbird
 from utils.misc import openDir
 
 
 class Update:
     def __init__(self, view=None):
         self.view = view
+        if self.view:
+            self.progressBar = view.progressBar
 
         self.paths = PathManager().getPaths()
         self.paymentFiles = self.paths["paymentFilesPatterns"].items()
 
-        self.currentStep = 1
-        self.progressPercent = 0
-
-        nbSteps = 0
-        for files in self.paymentFiles:
-            nbSteps += len(files[1])
-        self.nbSteps = nbSteps
-
     def setView(self, view):
         self.view = view
+        if self.view:
+            self.progressBar = view.progressBar
 
     def openDataDir(self):
         dirPath = self.paths["actuel"]
@@ -43,6 +40,12 @@ class Update:
                 if member.isThisMember(email, name, surname):
                     return nbMember
             return False
+
+        if self.view:
+            nbSteps = 0
+            for files in self.paymentFiles:
+                nbSteps += len(files[1])
+            self.progressBar.setNbSteps(nbSteps)
 
         membersByYear = defaultdict(list)  # Contiendra la liste des membres pour chaque année
         years = []  # Liste des années
@@ -105,19 +108,23 @@ class Update:
                     else:
                         membersByYear[year].append(newMember)  # Sinon on ajoute le nouveau adh pour l'année en question
                         newMember.addPayment(payment)  # On ajoute le paiement à sa liste de paiements
-            self.incrementProgress(labelTxt=f"{self.currentStep}/{self.nbSteps} : Traitement des fichiers de paiements")
+            self.progressBar.incrementProgress(labelTxt="Traitement des fichiers de paiements", showStep=True, hideAfterFinish=False)
 
         years.sort()  # On trie la liste par ordre chrn
-        self.resetProgress()
-        self.setNbSteps(len(years * 2) + 1)  # *2 Parce que d'abord on modifie les données par rapport aux années précédentes puis on exporte. +1 Pour le fichier de sauvegarde
+        self.progressBar.resetProgress()
+        self.progressBar.setNbSteps(len(years * 2) + 1)  # *2 Parce que d'abord on modifie les données par rapport aux années précédentes puis on exporte. +1 Pour le fichier de sauvegarde
 
         """
         Dans un second temps, on va regarder si pour chaque adhérent, celui-ci est enregistré dans l'une des années précédentes.
         Son statut ainsi que les valeurs des différents montants pourront être mis à jour.
+        On enregistre l'adhérent dans la liste des contacts dans Thunderbird aussi.
         """
 
+        emailContacts = {}
         for year in years:
             for member in membersByYear[year]:
+                emailContacts[member.email] = {"firstName": member.surname, "lastName": member.name}
+
                 prevYear = int(year) - 1
                 if len(membersByYear[prevYear]) > 0:
                     nbMember = getNbMemberInList(member.email, member.name, member.surname,
@@ -149,41 +156,24 @@ class Update:
                         if type(nbMember) is int:
                             if yearPrec < year:
                                 member.lastMembership = yearPrec
-                                member.status = "RA"
+                                if member.status == "NA":
+                                    member.status = "RA"
 
-            self.incrementProgress(labelTxt=f"{self.currentStep}/{self.nbSteps} : Mise à jour des adhérents")
+            self.progressBar.incrementProgress(labelTxt="Mise à jour des adhérents", showStep=True)
 
         """Enfin, on exporte les listes des adhérents (xlsx) et les reçus (PDF) """
         for year in years:
             exportMembersFile(self.paths["listesAdherents"] / f"{year}.xlsx", membersByYear[year])
             exportMemberReceipts(membersByYear[year])
-            self.incrementProgress(labelTxt=f"{self.currentStep}/{self.nbSteps} : Exportation de la liste des adhérents et des reçus")
+            self.progressBar.incrementProgress(labelTxt="Exportation de la liste des adhérents et des reçus", showStep=True)
 
         """ Puis on sauvegarde """
         Save().save()
-        self.incrementProgress(labelTxt=f"{self.currentStep}/{self.nbSteps} : Enregistrement du fichier de sauvegarde")
+        self.progressBar.incrementProgress(labelTxt="Enregistrement du fichier de sauvegarde", showStep=True)
+        # On sauvegarde la liste de contacts Thunderbird
+        Thunderbird().addContactsToList(emailContacts)
 
         LogManager().addLog("update", LogManager.LOGTYPE_INFO, "Succès du traitement des fichiers de paiements.")
-        self.resetProgress()  # TODO: stop
+        self.progressBar.resetProgress()
 
         return LogManager().getHigherStatusOf("update")
-
-    def setNbSteps(self, nbSteps):
-        self.nbSteps = nbSteps
-
-    def incrementProgress(self, incrSteps=1, labelTxt=''):
-        self.currentStep += incrSteps
-        self.progressPercent = (self.currentStep-1)/self.nbSteps * 100
-        if self.view:
-            self.view.updateLbl.config(text='')
-            self.view.progTxt.set(labelTxt)
-            self.view.progVal.set(min(self.progressPercent, 99.9))  # Mise à jour de la variable liée à la barre de progression
-            self.view.update_idletasks()  # Forcer la mise à jour de l'interface graphique
-
-    def resetProgress(self):
-        self.currentStep = 1
-        self.progressPercent = 0
-        if self.view:
-            self.view.updateLbl.config(text='')
-            self.view.progVal.set(0)  # Reset la barre de progression
-            self.view.update_idletasks()  # Forcer la mise à jour de l'interface graphique

@@ -7,8 +7,8 @@ from models.Save import Save
 class Member:
     def __init__(self, email, name, surname, address, postalCode, city, phone):
         self.email = email
-        self.name = name
-        self.surname = surname
+        self.name = name  # TODO: lastName
+        self.surname = surname # TODO: firstName
 
         self.receipts = []  # Seulement pour les paiements ponctuels
         self.regularPaymentsReceipt = None

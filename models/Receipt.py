@@ -16,9 +16,10 @@ class Receipt:
         num = 1
         baseID = datetime.strptime(date, "%d/%m/%Y").strftime("%y%m%d") + member.surname[0].upper() + member.name[0].upper()
         if self.regular:
-            baseID += 'R'  # Pour régulier
+            baseID += 'R'  # 'R' pour "régulier"
         memberEmail = member.email
-        while Save().isMemberReceiptExported(memberEmail, baseID+str(num)):
+
+        while baseID+str(num) in Save().idReceipts:
             if Save().getRefPaymentReceipt(memberEmail, baseID+str(num)) != self.refPayment:
                 num += 1
             else:
@@ -27,6 +28,10 @@ class Receipt:
 
         self.amount = float(amount)
         self.canBeExported = self.amount >= 15  # TODO : const dans settings
+
+        if self.canBeExported:
+            Save().idReceipts.append(self.id)
+
         self.date = date
         if source == "helloAsso":
             self.source = "Hello Asso"
@@ -36,6 +41,8 @@ class Receipt:
             self.source = "Carte Bancaire"
         else:
             self.source = source
+
+        #self.emailStatus = None
 
     def getDataDict(self, editionDate=True):
         member = self.member

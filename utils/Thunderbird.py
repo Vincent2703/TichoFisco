@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytz as pytz
 
+from models.Save import Save
 from utils.LogManager import LogManager
 
 
@@ -29,15 +30,20 @@ class Thunderbird:
         if not self._initialized:
             self.system = platform.system()
 
-            self.pathSoftware = Path("G:/Program Files/Thunderbird/")
+            thunderbirdSettings = Save().settings["thunderbird"]
+
+            self.pathSoftware = Path(thunderbirdSettings["path"])
             self.pathExeSoftware = self.pathSoftware / "thunderbird.exe"
-            self.profilePath = Path("C:/Users/Vincent/AppData/Roaming/Thunderbird/Profiles/yds0o9pz.default-esr")
+            self.profilePath = Path(thunderbirdSettings["profilePath"])
             self.userJSPath = self.profilePath / "user.js"
             self.LocalFoldersPath = self.profilePath / "Mail/Local Folders"
 
             self.fromEmail = "vincent.bourdon41@gmail.com"
             self.emailDomain = self.fromEmail.split('@', 1)[1]
             self.serviceName = self.emailDomain.split('.', 1)[0].capitalize()
+
+            self.emailSubject = thunderbirdSettings["emailSubject"]
+            self.emailBody = thunderbirdSettings["emailBody"]
 
             unsentFolderName = "Unsent Messages"
             self.unsentFolderPath = self.LocalFoldersPath / unsentFolderName
@@ -59,6 +65,8 @@ class Thunderbird:
             self.contacts = self._getContactsFromList(self.contactListUID)
 
             self.DBConnection.close()
+
+            self._initialized = True
 
     def _getConnectionToHistoryDB(self, path):
         try:
@@ -166,7 +174,13 @@ class Thunderbird:
                     file.write(colorLine + tagLine)
             file.close()
 
-    def addMail(self, subject='', to=None, message='', filePath=None):
+    def addMail(self, subject=None, to=None, message=None, filePath=None):
+        if not to:
+            return False
+
+        subject = subject or self.emailSubject
+        message = message or self.emailBody
+
         timezone = pytz.timezone("Europe/Paris")
         date = format_datetime(datetime.now(timezone))
         messageID = f"<{uuid.uuid4()}@{self.emailDomain}>"

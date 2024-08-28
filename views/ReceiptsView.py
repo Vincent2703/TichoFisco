@@ -14,7 +14,7 @@ class ReceiptsView(Frame):
         self.displayWidgets()
 
     def createWidgets(self):
-        def cbxCb():
+        def cbxCb(event):
             self.controller.queryUpdate(
                 member=self.membersCbx.get(),
                 year=self.yearsCbx.get()
@@ -27,6 +27,9 @@ class ReceiptsView(Frame):
 
         def cbRefresh():
             self.controller.updateViewData()
+
+        def cbTreeview(event):
+            self.controller.showBtn()
 
         self.receiptsNtbk = Notebook(self)
 
@@ -49,6 +52,7 @@ class ReceiptsView(Frame):
             {"id": "status", "name": "Statut", "width": 100, "sort": True},
         ]
         self.receiptsIrregTrv = Treeview(self.irregularsFr, columns=[col["id"] for col in columns[1:]])
+        self.receiptsIrregTrv.bind("<ButtonRelease-1>", cbTreeview)
         self.receiptsRegTrv = Treeview(self.regularsFr, columns=[col["id"] for col in columns[1:]])
 
         for col in columns:
@@ -70,7 +74,7 @@ class ReceiptsView(Frame):
         self.yearsCbx.pack()
         self.receiptsRegTrv.pack()
         self.receiptsIrregTrv.pack()
-        self.openReceiptBtn.pack()
+        #self.openReceiptBtn.pack()
         self.prepareEmailBtn.pack()
 
         self.progressBar.pack()

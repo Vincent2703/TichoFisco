@@ -1,5 +1,7 @@
 import os
-from os.path import isfile
+import platform
+from glob import glob
+from os.path import isfile, isdir
 
 import orjson as orjson
 
@@ -29,19 +31,39 @@ class Save:
             if os.path.isfile(self.saveFilePath):
                 self.load()
             else:
-                defaultSettings = {
-                    "rates": [
-                        {"name": "Sans emploi", "value": 10},
-                        {"name": "Individuel", "value": 18, "default": True},
-                        {"name": "Familial", "value": 25},
-                        {"name": "Association", "value": 30},
-                    ]
-                }
-                self.settings = defaultSettings
+                self.settings = self._getDefaultSettings()
+                self.save()
 
             self.defaultRate = self._getDefaultRate()
 
             self._initialized = True
+
+    def _getDefaultSettings(self):
+        def getThunderbirdProfilePath():
+            if platform.system() == "Windows":
+                dirProfiles = glob(os.path.join(os.getenv("APPDATA"), "Thunderbird", "Profiles", '*'))
+                for dirProfile in dirProfiles:
+                    if isfile(os.path.join(dirProfile, "user.js")) and isdir(os.path.join(dirProfile, "Mail/Local Folders")):
+                        return os.path.normpath(dirProfile)
+            return ''
+
+        thunderbirdProfilePath = getThunderbirdProfilePath()
+        defaultSettings = {
+            "thunderbird": {
+                "path": '',
+                "profilePath": thunderbirdProfilePath,
+                "emailSubject": "Reçu fiscal pour votre don au Tichodrome",
+                "emailBody": "Bonjour,<br/>Veuillez trouver en pièce jointe le reçu fiscal de votre don au Tichodrome."
+            },
+            "rates": [  # todo : key -> value
+                {"name": "Sans emploi", "value": 10},
+                {"name": "Individuel", "value": 18, "default": True},
+                {"name": "Familial", "value": 25},
+                {"name": "Association", "value": 30},
+            ]
+        }
+
+        return defaultSettings
 
     def _getDefaultRate(self):
         return next((rate for rate in self.settings.get("rates", []) if rate.get("default")), None)
@@ -53,7 +75,7 @@ class Save:
 
     def load(self):
         if isfile(self.saveFilePath) and os.stat(self.saveFilePath).st_size > 0:
-            with open(self.saveFilePath, 'r') as saveFile:
+            with open(self.saveFilePath, 'r', encoding="utf-8") as saveFile:
                 saveContent = saveFile.read()
                 saveJSON = orjson.loads(saveContent)  # TODO: Manage errors
                 self.members = saveJSON["members"]

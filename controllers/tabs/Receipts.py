@@ -37,6 +37,7 @@ class Receipts:
             self._setMembersCbxValues(self._getKVMembersCbx())
             self._setYearsCbxValues(self._getYears())
             self._setReceiptsTrvsValues(self._getAllReceipts())
+            self.hideBtn()
 
     def _setMembersCbxValues(self, members):
         membersList = list(members.values())
@@ -66,7 +67,7 @@ class Receipts:
         self._setNbReceiptsNtbkTab("irregulars", nbReceipts["irregulars"])
 
     def _setYearsCbxValues(self, years):
-        if years[0] != ALL_YEARS:
+        if len(years) == 0 or years[0] != ALL_YEARS:
             years.insert(0, ALL_YEARS)
         self.view.yearsCbx["values"] = years
         self.view.yearsCbx.set(ALL_YEARS)
@@ -212,9 +213,7 @@ class Receipts:
                 toEmail = row[0]
                 idReceipt = row[2]
                 filePath = self._getPathFromID(idReceipt)
-                Thunderbird().addMail(subject="Reçu fiscal pour votre don au Tichodrome", to=toEmail,
-                                      message="Bonjour,<br/>Veuillez trouver en pièce jointe le reçu fiscal de votre don au Tichodrome.",
-                                      filePath=filePath)
+                Thunderbird().addMail(to=toEmail, filePath=filePath)
                 self.progressBar.incrementProgress(labelTxt="Nombre de mails préparés", showStep=True)
                 preparedEmails.append({"emailMember": toEmail, "idReceipt": idReceipt, "emailStatus": 1})
         if thunderbirdRunning:
@@ -223,4 +222,10 @@ class Receipts:
 
         if len(preparedEmails) > 0:
             Save().updateMembersReceiptsEmailStatus(preparedEmails)
+
+    def hideBtn(self):
+        self.view.openReceiptBtn.pack_forget()
+
+    def showBtn(self):
+        self.view.openReceiptBtn.pack()
 

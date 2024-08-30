@@ -31,7 +31,7 @@ class ProgressBarManager:
         if showStep:
             labelTxt += f" : {self.currentStep}/{self.nbSteps}"
         self.labelValue.set(labelTxt)
-        self.progressValue.set(min(self.progressPercent, 99.9))  # Mise à jour de la variable liée à la barre de progression
+        self.progressValue.set(min(self.progressPercent, 99.9))  # Mise à jour de la variable liée à la barre de progression. Bloque à 99.9% pour ne pas rendre la barre vide
         if self.currentStep == self.nbSteps:
             self.currentStep = 0
             if hideAfterFinish:
@@ -63,9 +63,7 @@ class ProgressBarManager:
         self.pack()
 
     def _hideTimer(self, seconds):
-        sleep(seconds)
-        self._hide()
+        self.view.after(int(seconds * 1000), self._hide)
 
     def _startHideTimer(self):
-        timerThread = Thread(target=self._hideTimer, args=(2.5,))
-        timerThread.start()
+        self._hideTimer(2.5)

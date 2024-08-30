@@ -174,6 +174,6 @@ class Update:
         Thunderbird().addContactsToList(emailContacts)
 
         LogManager().addLog("update", LogManager.LOGTYPE_INFO, "Succès du traitement des fichiers de paiements.")
-        self.progressBar.resetProgress()
+        #self.progressBar.resetProgress()
 
         return LogManager().getHigherStatusOf("update")

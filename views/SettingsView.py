@@ -1,7 +1,9 @@
 from tkinter import Frame, BOTH, YES, Text, Button, filedialog, END, Label
+from tkinter.constants import BOTTOM
 from tkinter.ttk import Notebook, Style
 
 from utils.Thunderbird import Thunderbird
+from utils.styles import centerAlign
 
 
 class SettingsView(Frame):
@@ -29,22 +31,13 @@ class SettingsView(Frame):
             else:  # textarea
                 self.fields[name]["text"] = Text(frame, height=5, width=50)
 
-            if value:
-                if "text" in self.fields[name]:
-                    self.fields[name]["text"].grid(row=nbRow, column=1, padx=5, pady=10)
+            if "text" in self.fields[name]:
+                self.fields[name]["text"].grid(row=nbRow, column=1, padx=5, pady=10)
+                if value:
                     self.fields[name]["text"].insert(END, value)
 
-        def cbPathBtn(source, askFor="directory"):  # todo mettre dans contrôleur
-            widget = self.fields[source]["text"]
-
-            if askFor == "directory":
-                path = filedialog.askdirectory()
-            else:
-                path = filedialog.askopenfile()
-
-            if path:
-                widget.delete(1.0, END)
-                widget.insert(END, path)
+        def cbPathBtn(source, askFor="directory"):
+            self.controller.openPathDialog(source, askFor)
 
         _style = Style()
         _style.configure("vertical.TNotebook", tabposition="wn")
@@ -56,12 +49,18 @@ class SettingsView(Frame):
         self.settingsNtbk.add(self.thunderbirdFrm, text="Thunderbird")
         self.settingsNtbk.add(self.receipts, text="Reçus fiscaux")
 
+        settings = self.controller.settings
+        # TODO : Créer dans Save les champs (type, val par defaut etc) : plus qu'à parcourir
         # Thunderbird :
-        createField(self.thunderbirdFrm, labelTxt="Dossier de Thunderbird", name="thunderbirdPath", fieldType="directory", value=Thunderbird().pathSoftware.absolute().as_posix())
-        createField(self.thunderbirdFrm, labelTxt="Dossier du profil Thunderbird", name="thunderbirdProfilePath", fieldType="directory", value=Thunderbird().profilePath.absolute().as_posix())
-        createField(self.thunderbirdFrm, labelTxt="Adresse mail", name="thunderbirdEmail", fieldType="text", value=Thunderbird().fromEmail)
-        createField(self.thunderbirdFrm, labelTxt="Sujet du mail", name="thunderbirdEmailSubject", fieldType="text", value=Thunderbird().emailSubject)
-        createField(self.thunderbirdFrm, labelTxt="Corps du mail", name="thunderbirdEmailBody", fieldType="textarea", value=Thunderbird().emailBody)
+        TBSettings = settings["thunderbird"]
+        createField(self.thunderbirdFrm, labelTxt="Dossier de Thunderbird", name="thunderbirdPath", fieldType="directory", value=TBSettings["path"])
+        createField(self.thunderbirdFrm, labelTxt="Dossier du profil Thunderbird", name="thunderbirdProfilePath", fieldType="directory", value=TBSettings["profilePath"])
+        createField(self.thunderbirdFrm, labelTxt="Adresse mail", name="thunderbirdFromEmail", fieldType="text", value=TBSettings["fromEmail"])
+        createField(self.thunderbirdFrm, labelTxt="Sujet du mail", name="thunderbirdEmailSubject", fieldType="text", value=TBSettings["emailSubject"])
+        createField(self.thunderbirdFrm, labelTxt="Corps du mail", name="thunderbirdEmailBody", fieldType="textarea", value=TBSettings["emailBody"])
+
+        self.saveBtn = Button(self.settingsNtbk, text="Enregistrer", command=self.controller.saveSettings)
 
     def displayWidgets(self):
         self.settingsNtbk.pack(fill=BOTH, expand=YES)
+        self.saveBtn.pack(side=BOTTOM, pady=20)

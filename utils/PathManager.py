@@ -1,4 +1,5 @@
 from glob import glob
+from os.path import isfile
 from pathlib import Path
 
 from utils.LogManager import LogManager
@@ -38,7 +39,7 @@ class PathManager:  # Pour les chemins internes au logiciel uniquement (Thunderb
                     "virEspChq": glob(str(self.dirPaths["paiementsVirEspChq"] / "*.xlsx")),
                     "cb": glob(str(self.dirPaths["paiementsCB"] / "*.csv"))
                 },
-                "assets": {
+                "assets": {  # Vérifier que tout existe !
                     "PDFTemplate": self._assetsPath / "modeleRecuTichodrome.pdf",
                     "icons": {
                         "info": self._assetsPath / "icons/info.png",
@@ -47,6 +48,15 @@ class PathManager:  # Pour les chemins internes au logiciel uniquement (Thunderb
                     }
                 }
             }
+
+            for name, path in self.dirFiles["assets"].items():
+                if isinstance(path, dict):
+                    for subName, subPath in path.items():
+                        if not isfile(subPath):
+                            LogManager().addLog("OS", LogManager.LOGTYPE_ERROR, f"Le fichier {subName} (dans {name}) est manquant ! ({path})")
+                else:
+                    if not isfile(path):
+                        LogManager().addLog("OS", LogManager.LOGTYPE_ERROR, f"Le fichier {name} est manquant ! ({path})")
 
             self.createDirectories()
             self._initialized = True

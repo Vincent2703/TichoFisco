@@ -7,7 +7,7 @@ from utils.misc import centerTkinterWindow
 
 class MessageBoxDetails(tk.Tk):  # Basé sur https://stackoverflow.com/a/50650817
 
-    def __init__(self, title, message, detail, iconType="info"):
+    def __init__(self, title, message, detail='', iconType="info"):
         super().__init__()
         self.iconsPaths = PathManager().getPaths()["assets"]["icons"]
 

@@ -11,7 +11,7 @@ from datetime import datetime
 from email.utils import format_datetime
 from pathlib import Path
 
-import pytz as pytz
+import pytz
 
 from models.Save import Save
 from utils.LogManager import LogManager
@@ -31,7 +31,7 @@ class Thunderbird:
             self.system = platform.system()
 
             thunderbirdSettings = Save().settings["thunderbird"]
-
+            
             self.pathSoftware = Path(thunderbirdSettings["path"])
             self.pathExeSoftware = self.pathSoftware / "thunderbird.exe"
             self.profilePath = Path(thunderbirdSettings["profilePath"])
@@ -282,9 +282,9 @@ Content-Transfer-Encoding: base64
         return True
 
     def getStatusEmails(self):  # Status : -1 inconnu (0 pas trouvé) 1 préparé 2 envoyé 3 supprimé
-        regexReceiptID = 'filename="(.+)\.pdf"'
-        regexMozStatus1 = 'X-Mozilla-Status: ([0-9]+)'
-        regexMozStatus2 = 'X-Mozilla-Status2: ([0-9]+)'
+        regexReceiptID = r'filename="(.+)\.pdf"'
+        regexMozStatus1 = r'X-Mozilla-Status: ([0-9]+)'
+        regexMozStatus2 = r'X-Mozilla-Status2: ([0-9]+)'
         if os.path.isfile(self.unsentFolderPath):
             with open(self.unsentFolderPath, 'r') as file:
                 receiptsInThunderbird = {}

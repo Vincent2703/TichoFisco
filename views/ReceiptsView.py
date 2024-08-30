@@ -29,7 +29,7 @@ class ReceiptsView(Frame):
             self.controller.updateViewData()
 
         def cbTreeview(event):
-            self.controller.showBtn()
+            self.controller.showBtns()
 
         self.receiptsNtbk = Notebook(self)
 
@@ -54,6 +54,7 @@ class ReceiptsView(Frame):
         self.receiptsIrregTrv = Treeview(self.irregularsFr, columns=[col["id"] for col in columns[1:]])
         self.receiptsIrregTrv.bind("<ButtonRelease-1>", cbTreeview)
         self.receiptsRegTrv = Treeview(self.regularsFr, columns=[col["id"] for col in columns[1:]])
+        self.receiptsRegTrv.bind("<ButtonRelease-1>", cbTreeview)
 
         for col in columns:
             for treeview in [self.receiptsRegTrv, self.receiptsIrregTrv]:
@@ -75,7 +76,7 @@ class ReceiptsView(Frame):
         self.receiptsRegTrv.pack()
         self.receiptsIrregTrv.pack()
         #self.openReceiptBtn.pack()
-        self.prepareEmailBtn.pack()
+        #self.prepareEmailBtn.pack()
 
         self.progressBar.pack()
 

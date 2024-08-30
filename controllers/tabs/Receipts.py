@@ -37,7 +37,7 @@ class Receipts:
             self._setMembersCbxValues(self._getKVMembersCbx())
             self._setYearsCbxValues(self._getYears())
             self._setReceiptsTrvsValues(self._getAllReceipts())
-            self.hideBtn()
+            self._hideBtns()
 
     def _setMembersCbxValues(self, members):
         membersList = list(members.values())
@@ -223,9 +223,11 @@ class Receipts:
         if len(preparedEmails) > 0:
             Save().updateMembersReceiptsEmailStatus(preparedEmails)
 
-    def hideBtn(self):
+    def _hideBtns(self):
         self.view.openReceiptBtn.pack_forget()
+        self.view.prepareEmailBtn.pack_forget()
 
-    def showBtn(self):
+    def showBtns(self):
         self.view.openReceiptBtn.pack()
+        self.view.prepareEmailBtn.pack()
 

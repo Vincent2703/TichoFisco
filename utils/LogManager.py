@@ -43,7 +43,7 @@ class LogManager:
             else:
                 return None
         else:
-            return self.logs[name]
+            return name in self.logs and self.logs[name] or False
 
     def _printLogInConsole(self, name, logType, msg):
         logConsole = f"{name}: {msg}"
@@ -53,9 +53,12 @@ class LogManager:
         if logFunction:
             logFunction(logConsole)
 
-    def getLogTypeMsgsAsString(self, name, logType):
+    def getLogTypeMsgsAsString(self, name, logType=None):
         msgs = self.getLogs(name, logType)
-        return "\n\n".join(msgs)
+        if isinstance(msgs, dict):
+            return "\n\n".join(message for messages in msgs.values() for message in messages)
+        elif isinstance(msgs, list):
+            return "\n\n".join(msgs)
 
     def getHigherStatusOf(self, name):
         logs = self.getLogs(name)

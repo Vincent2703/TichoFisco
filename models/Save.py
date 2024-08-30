@@ -3,7 +3,7 @@ import platform
 from glob import glob
 from os.path import isfile, isdir
 
-import orjson as orjson
+import orjson
 
 from utils.LogManager import LogManager
 from utils.PathManager import PathManager
@@ -43,17 +43,22 @@ class Save:
             if platform.system() == "Windows":
                 dirProfiles = glob(os.path.join(os.getenv("APPDATA"), "Thunderbird", "Profiles", '*'))
                 for dirProfile in dirProfiles:
-                    if isfile(os.path.join(dirProfile, "user.js")) and isdir(os.path.join(dirProfile, "Mail/Local Folders")):
+                    if isdir(os.path.join(dirProfile, "Mail/Local Folders")):
                         return os.path.normpath(dirProfile)
             return ''
 
         thunderbirdProfilePath = getThunderbirdProfilePath()
+
         defaultSettings = {
             "thunderbird": {
                 "path": '',
                 "profilePath": thunderbirdProfilePath,
+                "fromEmail": '',
                 "emailSubject": "Reçu fiscal pour votre don au Tichodrome",
                 "emailBody": "Bonjour,<br/>Veuillez trouver en pièce jointe le reçu fiscal de votre don au Tichodrome."
+            },
+            "receipts": {
+
             },
             "rates": [  # todo : key -> value
                 {"name": "Sans emploi", "value": 10},
@@ -120,6 +125,30 @@ class Save:
     def getSavedReceiptHash(self, memberEmail, idReceipt):
         return self.members.get(memberEmail, {}).get("receipts", {}).get(idReceipt, {}).get("hash")
 
+    def isSettingsFilled(self):
+        result = True
+        mandatoryFields = {
+            "path": {"frName": "Dossier de Thunderbird", "value": self.settings["thunderbird"]["path"]},
+            "profilePath": {"frName": "Dossier du profil Thunderbird", "value": self.settings["thunderbird"]["profilePath"]},
+            "email": {"frName": "Adresse mail d'envoi", "value": self.settings["thunderbird"]["fromEmail"]}
+        }
+        for keyName, field in mandatoryFields.items():
+            if len(field["value"]) == 0:
+                result = False
+                LogManager().addLog("Settings", LogManager.LOGTYPE_WARNING, f"Un paramètre obligatoire ({field["frName"]}) est vide.")
+        return result
+
+    def saveSettings(self, newSettings, originalSettings=None):
+        if originalSettings is None:
+            originalSettings = self.settings
+        for key, value in newSettings.items():
+            if isinstance(value, dict) and key in originalSettings:
+                self.saveSettings(value, originalSettings[key])
+            else:
+                originalSettings[key] = value
+
+        return self.save() and self.isSettingsFilled()
+
     def save(self):
         try:
             # On enregistre le fichier .save
@@ -129,5 +158,7 @@ class Save:
             })
             saveHiddenFile(self.saveFilePath, jsonContent, binary=True)
             self.members = self.exportedMembers
+            return True
         except Exception as e:
-            LogManager().addLog("OS", f"Erreur lors de la sauvegarde : {e}")
+            LogManager().addLog("OS", logType=LogManager.LOGTYPE_ERROR, msg=f"Erreur lors de la sauvegarde : {e}")
+            return False

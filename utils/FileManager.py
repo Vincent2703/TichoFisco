@@ -1,9 +1,5 @@
 import csv
-import logging
-import os
 from datetime import datetime
-from hashlib import md5
-from json import dumps
 from operator import attrgetter
 from os import path
 from pathlib import Path
@@ -254,11 +250,11 @@ def exportMemberReceipts(members):
 
                 except(Exception,) as error:
                     LogManager().addLog("update", LogManager.LOGTYPE_ERROR,
-                                        f"Une erreur est survenue lors de l'enregistrement de '{member.name} {member.surname}' dans le fichier de sauvegarde.")
+                                        f"Une erreur est survenue lors de l'enregistrement de '{member.name} {member.surname}' dans le fichier de sauvegarde : {error}")
 
             except(Exception,) as error:
                 LogManager().addLog("update", LogManager.LOGTYPE_ERROR,
-                                    f"Une erreur inconnue est survenue lors de l'exportation des reçus de '{member.name} {member.surname}'")
+                                    f"Une inconnue est survenue lors de l'exportation des reçus de '{member.name} {member.surname} : {error}'")
 
         else:
             LogManager().addLog("update", LogManager.LOGTYPE_WARNING,

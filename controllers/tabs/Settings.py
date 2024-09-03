@@ -1,10 +1,11 @@
 import os.path
-import re
 from os.path import isabs
-from tkinter import filedialog, END
+from pathlib import Path
+from tkinter import filedialog, END, messagebox
 
 from models.Save import Save
-from utils import misc
+from utils.LogManager import LogManager
+from utils.MessageBoxDetails import MessageBoxDetails
 
 
 class Settings:
@@ -15,13 +16,15 @@ class Settings:
     def setView(self, view):
         self.view = view
 
-    def openPathDialog(self, source, askFor="directory"):
-        widget = self.view.fields[source]["text"]
+    def openPathDialog(self, widget, askFor="directory"):
+        widgetValue = Path(widget.get("1.0", END))
 
         if askFor == "directory":
-            path = filedialog.askdirectory()
+            path = filedialog.askdirectory(initialdir=widgetValue.as_posix().strip())
         else:
-            path = filedialog.askopenfile()
+            dir = widgetValue.parent.as_posix().strip()
+            file = widgetValue.name.strip()
+            path = filedialog.askopenfile(initialdir=dir, initialfile=file).name
 
         if path:
             widget.delete(1.0, END)
@@ -41,7 +44,12 @@ class Settings:
                             value = os.path.normpath(value.strip())
                         newSettings["thunderbird"][key] = value
 
-        if Save().saveSettings(newSettings):  # todo : afficher message
-            pass
+        if Save().saveSettings(newSettings):
+            messagebox.showinfo("Enregistrement des options", "L'enregistrement des options a été effectué avec succès.")
         else:
+            detailsMsg = LogManager().getLogTypeMsgsAsString("OS")
+            MessageBoxDetails("Enregistrement des options", "Un problème est survenu lors de l'enregistrement des options.", detailsMsg)
+
+    def reset(self, type):
+        if type == "full":
             pass

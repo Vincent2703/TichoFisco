@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 from tkinter import END
 
 from models.Save import Save
@@ -18,6 +17,7 @@ class Receipts:
         self.view = view
         if self.view:
             self.progressBar = view.progressBar
+            self.lastQuery = None
 
         self.paths = PathManager().getPaths()
         self.members = self._getMembersList()
@@ -27,16 +27,16 @@ class Receipts:
         self.view = view
         if self.view:
             self.progressBar = view.progressBar
+            self.lastQuery = None
 
-    def updateViewData(self, reloadFiles=True):
+    def updateViewData(self, reloadFiles=True, reloadQuery=True):
         if self.view:
             if reloadFiles:
                 self.members = self._getMembersList()
                 self.receipts = self._getReceiptsList()
 
             self._setMembersCbxValues(self._getKVMembersCbx())
-            self._setYearsCbxValues(self._getYears())
-            self._setReceiptsTrvsValues(self._getAllReceipts())
+            self.queryUpdate(reloadQuery=reloadQuery)
             self._hideBtns()
 
     def _setMembersCbxValues(self, members):
@@ -80,9 +80,9 @@ class Receipts:
 
     def _getKVMembersCbx(self):
         dictMembers = {}
-        members = dict(sorted(self.members.items(), key=lambda item: item[1]["name"]))
+        members = dict(sorted(self.members.items(), key=lambda item: item[1]["lastName"]))
         for email, member in members.items():
-            dictMembers[email] = f"{member['name']} {member['surname']}"
+            dictMembers[email] = f"{member["lastName"]} {member["firstName"]}"
 
         return dictMembers
 
@@ -113,7 +113,12 @@ class Receipts:
     def _getYears(self):
         return os.listdir(str(self.paths["recusFiscaux"]))
 
-    def queryUpdate(self, member=ALL_MEMBERS, year=ALL_YEARS):
+    def queryUpdate(self, member=ALL_MEMBERS, year=ALL_YEARS, reloadQuery=False):
+        if reloadQuery and self.lastQuery:
+            member = self.lastQuery["member"]
+            year = self.lastQuery["year"]
+        self.lastQuery = {"member":member, "year":year}
+
         # Si tous les membres sont sélectionnés
         if member == ALL_MEMBERS:
             receipts = self._getAllReceipts()

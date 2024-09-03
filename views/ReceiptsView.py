@@ -75,8 +75,6 @@ class ReceiptsView(Frame):
         self.yearsCbx.pack()
         self.receiptsRegTrv.pack()
         self.receiptsIrregTrv.pack()
-        #self.openReceiptBtn.pack()
-        #self.prepareEmailBtn.pack()
 
         self.progressBar.pack()
 

@@ -5,10 +5,10 @@ from models.Save import Save
 
 
 class Member:
-    def __init__(self, email, name, surname, address, postalCode, city, phone):
+    def __init__(self, email, lastName, firstName, address, postalCode, city, phone):
         self.email = email
-        self.name = name  # TODO: lastName
-        self.surname = surname # TODO: firstName
+        self.lastName = lastName
+        self.firstName = firstName
 
         self.receipts = []  # Seulement pour les paiements ponctuels
         self.regularPaymentsReceipt = None
@@ -41,6 +41,7 @@ class Member:
             self.phone = phone
 
     def addPayment(self, payment):
+        minimalAmountForReceipt = Save().settings["receipts"]["minimalAmount"]
         paymentAmount = float(payment.amount)
 
         self.amounts["totalYear"] += paymentAmount
@@ -49,18 +50,18 @@ class Member:
 
         regularPayment = payment.regular
         if self.regular is None:
-            if regularPayment and (payment.amount >= 15 or (self.regularPaymentsReceipt is not None and self.regularPaymentsReceipt.amount + payment.amount >= 15)):
-                self.regular = True
-            elif not regularPayment:
+            if regularPayment:
+                if payment.amount >= minimalAmountForReceipt or (self.regularPaymentsReceipt and self.regularPaymentsReceipt.amount + payment.amount >= minimalAmountForReceipt):
+                    self.regular = True
+            else:
                 self.regular = False
         else:
             if not regularPayment:
                 if self.regular:
                     self.regular = "P&R"
-            else:
-                if self.regular is False:
-                    if payment.amount >= 15 or (self.regularPaymentsReceipt is not None and self.regularPaymentsReceipt.amount + payment.amount >= 15):
-                        self.regular = "P&R"
+            elif not self.regular:
+                if payment.amount >= minimalAmountForReceipt or (self.regularPaymentsReceipt and self.regularPaymentsReceipt.amount + payment.amount >= minimalAmountForReceipt):
+                    self.regular = "P&R"
 
         if self.status is None:
             self.status = "NA"
@@ -81,8 +82,8 @@ class Member:
             if receipt.canBeExported:
                 self.receipts.append(receipt)
 
-    def isThisMember(self, email, name, surname):
-        return (email.casefold() == self.email.casefold()) or (name.casefold() == self.name.casefold() and surname.casefold() == self.surname.casefold())
+    def isThisMember(self, email, lastName, firstName):
+        return (email.casefold() == self.email.casefold()) or (lastName.casefold() == self.lastName.casefold() and firstName.casefold() == self.firstName.casefold())
 
     def hasValidAddress(self):
         return self.address is not None and self.postalCode is not None and self.city is not None
@@ -93,7 +94,7 @@ class Member:
             receipts.append(self.regularPaymentsReceipt)
         receiptsId = ";".join([receipt.id for receipt in receipts])
 
-        return [self.email, self.name, self.surname, receiptsId, self.status,
+        return [self.email, self.lastName, self.firstName, receiptsId, self.status,
                 self.lastMembership, self.regular, self.sendingMail, self.address, self.postalCode, self.city,
                 self.phone,
                 self.amounts["paidMembershipLastYear"], self.amounts["paidMembershipYear"],

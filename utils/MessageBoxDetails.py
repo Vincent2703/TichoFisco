@@ -5,7 +5,7 @@ from utils.PathManager import PathManager
 from utils.misc import centerTkinterWindow
 
 
-class MessageBoxDetails(tk.Tk):  # Basé sur https://stackoverflow.com/a/50650817
+class MessageBoxDetails(tk.Toplevel):  # Basé sur https://stackoverflow.com/a/50650817
 
     def __init__(self, title, message, detail='', iconType="info"):
         super().__init__()
@@ -58,7 +58,8 @@ class MessageBoxDetails(tk.Tk):  # Basé sur https://stackoverflow.com/a/5065081
         # Keep a reference to prevent garbage collection
         self.icon = icon
 
-        self.mainloop()
+        self.grab_set()  # To make the window modal
+        self.transient()  # Associate it with the parent window
 
     def _toggle_details(self):
         if self.details_expanded:

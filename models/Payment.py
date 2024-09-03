@@ -4,8 +4,7 @@ from utils.LogManager import LogManager
 
 
 class Payment:
-    def __init__(self, email, name, surname, date, regular, address, postalCode, city, phone, amount, source,
-                 refPayment):
+    def __init__(self, email, lastName, firstName, date, regular, address, postalCode, city, phone, amount, source, refPayment):
         self.isValid = True
         self.notValidCause = None
 
@@ -15,8 +14,8 @@ class Payment:
         else:
             self.setNoValid(f"Mail incorrect : '{email}'")
 
-        self.name = name.upper()
-        self.surname = surname[0].upper() + surname[1:].lower()
+        self.lastName = lastName.upper()
+        self.firstName = firstName[0].upper() + firstName[1:].lower()
 
         dateRegex = r'^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/(\d{4})$'
         if re.match(dateRegex, date):

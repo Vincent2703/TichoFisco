@@ -1,4 +1,5 @@
 import os
+import pathlib
 import platform
 from glob import glob
 from os.path import isfile, isdir
@@ -7,7 +8,7 @@ import orjson
 
 from utils.LogManager import LogManager
 from utils.PathManager import PathManager
-from utils.misc import saveHiddenFile
+from utils.misc import saveHiddenFile, getEpoch
 
 
 class Save:
@@ -28,6 +29,7 @@ class Save:
             self.members = {}  # Ce dict est rempli au lancement du prog grâce au fichier .save
             self.exportedMembers = {}  # Ce dict est rempli lors de la mise à jour des infos. C'est lui qui sera exporté à la fin
             self.settings = {}
+            self.lastUpdate = None
             if os.path.isfile(self.saveFilePath):
                 self.load()
             else:
@@ -58,7 +60,8 @@ class Save:
                 "emailBody": "Bonjour,<br/>Veuillez trouver en pièce jointe le reçu fiscal de votre don au Tichodrome."
             },
             "receipts": {
-
+                "minimalAmount": 15,
+                "pdfTemplatePath": (pathlib.Path(__file__).parents[1].resolve() / "assets" / "modeleRecuTichodrome.pdf").as_posix()
             },
             "rates": [  # todo : key -> value
                 {"name": "Sans emploi", "value": 10},
@@ -83,6 +86,7 @@ class Save:
             with open(self.saveFilePath, 'r', encoding="utf-8") as saveFile:
                 saveContent = saveFile.read()
                 saveJSON = orjson.loads(saveContent)  # TODO: Manage errors
+                self.lastUpdate = saveJSON["lastUpdate"]
                 self.members = saveJSON["members"]
                 self.settings = saveJSON["settings"]
 
@@ -98,7 +102,6 @@ class Save:
                 "amount": receipt.amount,
                 "refPayment": receipt.refPayment,  # TODO Pourrait être un tableau si reg
                 "canBeExported": receipt.canBeExported,
-                #"emailStatus": None
             }
 
     def _isMemberExported(self, memberEmail):
@@ -149,16 +152,36 @@ class Save:
 
         return self.save() and self.isSettingsFilled()
 
-    def save(self):
+    def save(self, refreshDate=False):
         try:
+            epoch = refreshDate and getEpoch() or self.lastUpdate
             # On enregistre le fichier .save
             jsonContent = orjson.dumps({
                 "members": self.exportedMembers,
-                "settings": self.settings
+                "settings": self.settings,
+                "lastUpdate": epoch
             })
+
             saveHiddenFile(self.saveFilePath, jsonContent, binary=True)
             self.members = self.exportedMembers
+            self.lastUpdate = epoch
             return True
         except Exception as e:
             LogManager().addLog("OS", logType=LogManager.LOGTYPE_ERROR, msg=f"Erreur lors de la sauvegarde : {e}")
+            return False
+
+    def resetSettings(self):
+        self.settings = self._getDefaultSettings()
+
+    def resetMembers(self):
+        self.exportedMembers = {}
+
+    def fullReset(self):
+        try:
+            self.resetSettings()
+            self.resetMembers()
+            self.save()
+            return True
+        except Exception as e:
+            LogManager().addLog("OS", logType=LogManager.LOGTYPE_ERROR, msg=f"Erreur lors de la réinitialisation du cache : {e}")
             return False

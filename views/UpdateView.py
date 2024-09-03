@@ -1,9 +1,11 @@
-from tkinter import IntVar, DoubleVar, StringVar, Label, X, RIGHT, LEFT
-from tkinter.ttk import Progressbar, Button, Frame
+from tkinter import DoubleVar, StringVar, Label, messagebox
+from tkinter.ttk import Button, Frame
 
+from models.Save import Save
 from utils.LogManager import LogManager
 from utils.MessageBoxDetails import MessageBoxDetails
 from utils.ProgressBarManager import ProgressBarManager
+from utils.misc import epochToFrDate
 
 
 class UpdateView(Frame):
@@ -21,7 +23,9 @@ class UpdateView(Frame):
         def cbUpdateBtn():
             infoStatus, warningStatus, errorStatus = LogManager.LOGTYPE_INFO, LogManager.LOGTYPE_WARNING, LogManager.LOGTYPE_ERROR
             resProcess = self.controller.processPayments()
-            if resProcess == infoStatus:
+            if resProcess == "membersListOpen":
+                messagebox.showwarning("Liste(s) ouverte(s)", "Veuillez fermer les fichiers contenant une liste d'adhérents avant de procéder à une mise à jour.")
+            elif resProcess == infoStatus:
                 detailsMsg = LogManager().getLogTypeMsgsAsString("update", infoStatus)
                 MessageBoxDetails("Succès de la mise à jour", "La mise à jour a été réalisée avec succès.", detailsMsg)
             elif resProcess == warningStatus:
@@ -33,6 +37,9 @@ class UpdateView(Frame):
                 detailsMsg = warningMsg + "\n\n" + errorMsg
                 MessageBoxDetails("Erreur critique !", "Une ou plusieurs erreurs critiques sont survenues lors du traitement des paiements.", detailsMsg, iconType="error")
 
+            if resProcess in (infoStatus, warningStatus):
+                self.lastUpdateLblValue.set(f"Dernière mise à jour : {epochToFrDate(Save().lastUpdate)}")
+
         def cbOpenDirBtn():
             if not self.controller.openDataDir():
                 detailsMsg = LogManager().getLogTypeMsgsAsString("OS", LogManager.LOGTYPE_ERROR)
@@ -41,11 +48,16 @@ class UpdateView(Frame):
         self.updateBtn = Button(self, text="Mettre à jour", command=cbUpdateBtn)
         self.openDirBtn = Button(self, text="Ouvrir le dossier", command=cbOpenDirBtn)
 
+        self.lastUpdateLblValue = StringVar(value=f"Dernière mise à jour : {epochToFrDate(Save().lastUpdate)}")
+        self.lastUpdateLbl = Label(self, textvariable=self.lastUpdateLblValue)
+
         self.progressBar = ProgressBarManager(self)
 
     def displayWidgets(self):
         self.updateBtn.pack()
         self.openDirBtn.pack()
+
+        self.lastUpdateLbl.pack()
 
         self.progressBar.pack()
 

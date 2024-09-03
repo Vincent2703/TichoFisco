@@ -1,8 +1,10 @@
 import csv
+import os
 from datetime import datetime
 from operator import attrgetter
 from os import path
 from pathlib import Path
+from shutil import rmtree
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
@@ -20,12 +22,29 @@ from utils.Thunderbird import Thunderbird
 def getDataFromPaymentsFile(path, source):
     payments = []
 
+    def isEmptyRow(row):
+        """
+        Vérifie si une ligne est complètement vide.
+        """
+        return all(cell.value is None or cell.value == "" for cell in row)
+
+    def getMissingRequiredCol(row, requiredCols):
+        missingCols = []
+        for colName, colIdx in requiredCols.items():
+            if row[colIdx].value is None:
+                missingCols.append(colName)
+        return missingCols
+
+    def addWarningMissingCols(nbRow, missingCols):
+        LogManager().addLog("update", LogManager.LOGTYPE_WARNING,
+                            f"Fichier {path}.\nIl manque des valeurs obligatoires pour la ligne n°{nbRow} :\nValeur(s) manquante(s) : {', '.join(missingCols)}")
+
     def addToPayments(payment):
         if newPayment.isValid:
             payments.append(payment)
         else:
             LogManager().addLog("update", LogManager.LOGTYPE_WARNING,
-                                f"Impossible de traiter le paiement '{payment.source.upper()}' venant de '{payment.name} {payment.surname}'. Référence du paiement : '{payment.refPayment}'.\nRaison -> {payment.notValidCause}")
+                                f"Impossible de valider le paiement '{payment.source.upper()}' venant de '{payment.lastName} {payment.firstName}'. Référence du paiement : '{payment.refPayment}'.\nRaison -> {payment.notValidCause}")
 
     if source != "cb":
         workbook = load_workbook(filename=path)
@@ -37,52 +56,58 @@ def getDataFromPaymentsFile(path, source):
             for row in csvReader:
                 csvContent.append(row)
 
-    if source == "helloAsso":
-        requiredCols = [1, 2, 5, 6, 7]  # Indices des colonnes à vérifier pour les valeurs non nulles
-        for row in sheet.iter_rows(min_row=2):
-            if all(row[idx].value is not None for idx in requiredCols):
-                newPayment = Payment(
-                    email=row[7].value,
-                    name=row[5].value,
-                    surname=row[6].value,
-                    date=row[2].value.strftime("%d/%m/%Y"),
-                    regular=row[8].value == "Crowdfunding",
-                    address=row[9].value,
-                    postalCode=str(row[10].value),
-                    city=row[11].value,
-                    phone='',
-                    amount=float(row[1].value),
-                    source=source,
-                    refPayment=row[0].value
-                )
-                addToPayments(newPayment)
+    try:
+        if source == "helloAsso":
+            requiredCols = {"montant":1, "date":2, "nom de famille":5, "prénom":6, "adresse mail":7}
+            for row in sheet.iter_rows(min_row=2):
+                if all(row[idx].value is not None for idx in requiredCols.values()):
+                    newPayment = Payment(
+                        email=row[7].value,
+                        lastName=row[5].value,
+                        firstName=row[6].value,
+                        date=row[2].value.strftime("%d/%m/%Y"),
+                        regular=row[8].value == "Crowdfunding",
+                        address=row[9].value,
+                        postalCode=str(row[10].value),
+                        city=row[11].value,
+                        phone='',
+                        amount=float(row[1].value),
+                        source=source,
+                        refPayment=row[0].value
+                    )
+                    addToPayments(newPayment)
 
-    elif source == "paypal":
-        requiredCols = [0, 2, 8, 9, 4]
-        for row in sheet.iter_rows(min_row=4):
-            if all(row[idx].value is not None for idx in requiredCols) and row[4].value == "Terminé" and float(
-                    row[8].value) > 0:
-                names = row[2].value.rsplit(' ', 1)
-                newPayment = Payment(
-                    email=row[9].value,
-                    name=names[0],
-                    surname=names[1],
-                    date=row[0].value.strftime("%d/%m/%Y"),
-                    regular=row[3].value == "Paiement d'abonnement",
-                    address=row[11].value,
-                    postalCode=str(row[13].value or ''),
-                    city=row[12].value,
-                    phone='',
-                    amount=float(row[8].value),
-                    source=source,
-                    refPayment=row[10].value
-                )
-                addToPayments(newPayment)
+        elif source == "paypal":
+            requiredCols = [0, 2, 8, 9, 4]
+            for row in sheet.iter_rows(min_row=4):
+                if all(row[idx].value is not None for idx in requiredCols) and row[4].value == "Terminé" and float(row[8].value) > 0:
+                    names = row[2].value.rsplit(' ', 1)
+                    newPayment = Payment(
+                        email=row[9].value,
+                        lastName=names[0],
+                        firstName=names[1],
+                        date=row[0].value.strftime("%d/%m/%Y"),
+                        regular=row[3].value == "Paiement d'abonnement",
+                        address=row[11].value,
+                        postalCode=str(row[13].value or ''),
+                        city=row[12].value,
+                        phone='',
+                        amount=float(row[6].value),
+                        source=source,
+                        refPayment=row[10].value
+                    )
+                    addToPayments(newPayment)
 
-    elif source == "virEspChq":
-        requiredCols = [0, 2, 3, 4, 8]
-        for row in sheet.iter_rows(min_row=2):
-            if all(row[idx].value is not None for idx in requiredCols):
+        elif source == "virEspChq":
+            requiredCols = {"date":0, "adresse mail":2, "nom de famille":3, "prénom":4, "montant":8}
+            for row in sheet.iter_rows(min_row=2):
+                if isEmptyRow(row):
+                    continue  # Si ligne vide, on ignore et on passe à la suivante
+                missingCols = getMissingRequiredCol(row, requiredCols)
+                if missingCols:
+                    addWarningMissingCols(row[0].row, missingCols)
+                    continue  # Si ligne manque des valeurs obligatoires, on affiche un message et on ignore la ligne
+
                 source = ''
                 mode = row[9].value.casefold()
                 if mode == 'v':
@@ -94,8 +119,8 @@ def getDataFromPaymentsFile(path, source):
 
                 newPayment = Payment(
                     email=row[2].value,
-                    name=row[3].value,
-                    surname=row[4].value,
+                    lastName=row[3].value,
+                    firstName=row[4].value,
                     date=row[0].value.strftime("%d/%m/%Y"),
                     regular=row[10].value == "O",
                     address=row[5].value,
@@ -108,33 +133,34 @@ def getDataFromPaymentsFile(path, source):
                 )
                 addToPayments(newPayment)
 
-    elif source == "cb":
-        requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant",
-                        "Carte de crédit/débit - État "]
-        for row in csvContent:
-            if all(row[key] is not None for key in requiredCols) and row[
-                "Carte de crédit/débit - État "].casefold() == "completed":
-                newPayment = Payment(
-                    email=row["E-mail"],
-                    name=row["Nom"],
-                    surname=row["Prénom"],
-                    date=misc.convertFrenchDate(row["Heure de soumission"]).strftime("%d/%m/%Y"),
-                    regular=False,
-                    address=row["Address - Rue"] + ' ' + row["Address - Appartement, suite, etc."],
-                    postalCode=str(row["Address - Code postal"]),
-                    city=row["Address - Ville"],
-                    phone=str(row["Téléphone"]),
-                    amount=float(row["Carte de crédit/débit - Montant"]),
-                    source=source,
-                    refPayment=str(row["Carte de crédit/débit - ID de la transaction"])
-                )
-                addToPayments(newPayment)
+        elif source == "cb":
+            requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant",
+                            "Carte de crédit/débit - État "]
+            for row in csvContent:
+                if all(row[key] is not None for key in requiredCols) and row["Carte de crédit/débit - État "].casefold() == "completed":
+                    newPayment = Payment(
+                        email=row["E-mail"],
+                        lastName=row["Nom"],
+                        firstName=row["Prénom"],
+                        date=misc.convertFrenchDate(row["Heure de soumission"]).strftime("%d/%m/%Y"),
+                        regular=False,
+                        address=row["Address - Rue"] + ' ' + row["Address - Appartement, suite, etc."],
+                        postalCode=str(row["Address - Code postal"]),
+                        city=row["Address - Ville"],
+                        phone=str(row["Téléphone"]),
+                        amount=float(row["Carte de crédit/débit - Montant"]),
+                        source=source,
+                        refPayment=str(row["Carte de crédit/débit - ID de la transaction"])
+                    )
+                    addToPayments(newPayment)
+
+    except Exception as e:
+        LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Une erreur est survenue lors du traitement du fichier {source} : {path}. Veuillez vérifier la structure du fichier et le format des données. (erreur rencontrée : {e}, ligne {row[0].row})")
 
     return payments
 
-
 def initMembersFile(year):  # Création du fichier ou réinitialisation
-    membersList = PathManager().getPaths()["listesAdherents"] / f"{year}.xlsx"
+    membersList = PathManager().getPaths()["listesAdherents"] / f"liste des adhérents {year}.xlsx"
     if not Path(membersList).is_file():
         try:
             year = str(year)
@@ -189,6 +215,27 @@ def initMembersFile(year):  # Création du fichier ou réinitialisation
             return False
 
 
+def getExistingMembersData(year):  # Permet de récupérer les éventuels notes et tarifs spéciaux dans une liste d'adhérents (donnée par une année)
+    filepath = PathManager().getPaths()["listesAdherents"] / f"liste des adhérents {year}.xlsx"
+    existingMembersData = {}
+    if Path(filepath).is_file():  # Si le fichier existe déjà
+        existingMembersData = {}  # Pour récupérer les éventuels remarques et tarifs spéciaux
+        defaultRate = Save().defaultRate["value"]
+
+        workbook = load_workbook(filepath)
+        sheet = workbook.active
+        for row in sheet.iter_rows(min_row=2, max_row=len(sheet['A']) - 4):  # On regarde s'il y a des remarques à récupérer pour les remettre dans le fichier final si l'adhérent y est toujours présent
+            memberEmail = row[0].value
+            notes = row[20].value
+            rate = row[19].value
+            existingMembersData[memberEmail] = {}
+            if notes is not None:
+                existingMembersData[memberEmail]["notes"] = notes
+            if rate != defaultRate:
+                existingMembersData[memberEmail]["rate"] = rate
+
+    return existingMembersData
+
 def exportMembersFile(filePath, members):
     def calcTotalsPayments(members):
         totals = {
@@ -209,8 +256,7 @@ def exportMembersFile(filePath, members):
         workbook = load_workbook(filename=filePath)
         sheet = workbook.active
 
-        members = sorted(members, key=attrgetter(
-            "lastPayment"))  # Trie des membres selon la date du dernier paiement, par ordre chronologique
+        members = sorted(list(members.values()), key=attrgetter("lastPayment"))  # Trie les membres selon la date du dernier paiement, par ordre chronologique
         for member in members:  # On ajoute chaque membre au fichier Excel
             sheet.append(member.toArray())
 
@@ -237,7 +283,7 @@ def exportMembersFile(filePath, members):
 
 
 def exportMemberReceipts(members):
-    for member in members:
+    for email, member in members.items():
         if member.hasValidAddress():
             try:  # Exportation des PDFs
                 receipts = member.receipts
@@ -250,15 +296,15 @@ def exportMemberReceipts(members):
 
                 except(Exception,) as error:
                     LogManager().addLog("update", LogManager.LOGTYPE_ERROR,
-                                        f"Une erreur est survenue lors de l'enregistrement de '{member.name} {member.surname}' dans le fichier de sauvegarde : {error}")
+                                        f"Une erreur est survenue lors de l'enregistrement de '{member.lastName} {member.firstName}' dans le fichier de sauvegarde : {error}")
 
             except(Exception,) as error:
                 LogManager().addLog("update", LogManager.LOGTYPE_ERROR,
-                                    f"Une inconnue est survenue lors de l'exportation des reçus de '{member.name} {member.surname} : {error}'")
+                                    f"Une inconnue est survenue lors de l'exportation des reçus de '{member.lastName} {member.firstName} : {error}'")
 
         else:
             LogManager().addLog("update", LogManager.LOGTYPE_WARNING,
-                                f"{member.surname} {member.name}  n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
+                                f"{member.firstName} {member.lastName}  n'a pas de coordonnées de contact valides. L'édition de ses reçus est impossible.")
 
 
 def _exportReceipts(receipts):  # TODO : Vérifier si erreur avant de faire exportedReceipts.append(receipt)
@@ -332,8 +378,8 @@ def importMembers():  # S'il y a plusieurs fois le même membre dans plusieurs l
                 IDReceipts = row[3].value.split(';')
                 if email not in members:
                     member = {
-                        "name": row[1].value,
-                        "surname": row[2].value,
+                        "lastName": row[1].value,
+                        "firstName": row[2].value,
                         "IDReceipts": IDReceipts,
                         "years": [year]
                     }
@@ -378,3 +424,23 @@ def importReceipts():  # Obtient les données venant de Save + Thunderbird (pour
                 receipts[email][id]["emailStatus"] = statusTxt
 
     return receipts
+
+def deleteAllReceipts():
+    path = PathManager().getPaths()["recusFiscaux"]
+    try:
+        for directory in next(os.walk(path))[1]:
+            rmtree(path / directory)
+        return True
+    except Exception as e:
+        LogManager().addLog("OS", LogManager.LOGTYPE_ERROR, f"Impossible de supprimer le dossier : {e}")
+        return False
+
+def deleteAllMemberLists():
+    path = PathManager().getPaths()["listesAdherents"]
+    try:
+        for file in next(os.walk(path))[2]:
+            os.unlink(path / file)
+        return True
+    except Exception as e:
+        LogManager().addLog("OS", LogManager.LOGTYPE_ERROR, f"Impossible de supprimer le dossier : {e}")
+        return False

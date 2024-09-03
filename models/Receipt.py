@@ -14,7 +14,7 @@ class Receipt:
         self.regular = regular
 
         num = 1
-        baseID = datetime.strptime(date, "%d/%m/%Y").strftime("%y%m%d") + member.surname[0].upper() + member.name[0].upper()
+        baseID = datetime.strptime(date, "%d/%m/%Y").strftime("%y%m%d") + member.firstName[0].upper() + member.lastName[0].upper()
         if self.regular:
             baseID += 'R'  # 'R' pour "régulier"
         memberEmail = member.email
@@ -27,7 +27,7 @@ class Receipt:
         self.id = baseID+str(num)
 
         self.amount = float(amount)
-        self.canBeExported = self.amount >= 15  # TODO : const dans settings
+        self.canBeExported = self.amount >= Save().settings["receipts"]["minimalAmount"]
 
         if self.canBeExported:
             Save().idReceipts.append(self.id)
@@ -48,7 +48,7 @@ class Receipt:
         member = self.member
         dict = {
             "idReceipt": "ID reçu : " + self.id,
-            "name": member.name + ' ' + member.surname,
+            "name": f"{member.lastName} {member.firstName}",
             "address": member.address,
             "postalCode": member.postalCode,
             "city": member.city,

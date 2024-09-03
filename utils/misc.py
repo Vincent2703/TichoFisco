@@ -3,8 +3,10 @@ import os.path
 import platform
 import re
 import subprocess
+import time
 from datetime import datetime
 from os.path import isfile
+from pathlib import Path
 
 from utils.LogManager import LogManager
 
@@ -141,3 +143,22 @@ def sortTreeviewCol(trv, col, reverse=False):  # Fonction basée sur https://sta
 
     # Configurer le header pour permettre de trier dans l'autre sens lors du prochain clic
     trv.heading(colID, command=lambda: sortTreeviewCol(trv, col, not reverse))
+
+def getEpoch():
+    return int(time.time())
+
+def epochToFrDate(epoch):
+    return time.strftime("%d/%m/%Y %H:%M", time.localtime(epoch))
+
+def isFileInUse(filepath):  # Basé sur https://stackoverflow.com/a/66598940
+    path = Path(filepath)
+
+    if not path.exists():
+        return False
+
+    try:
+        path.rename(path)
+    except PermissionError:
+        return True
+    else:
+        return False

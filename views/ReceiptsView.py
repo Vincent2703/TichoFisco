@@ -1,7 +1,6 @@
 from tkinter import Frame, Button, messagebox
 from tkinter.ttk import Notebook, Combobox, Treeview
-
-from utils.ProgressBarManager import ProgressBarManager
+from utils.customTkinter.ProgressBarManager import ProgressBarManager
 from utils.misc import sortTreeviewCol
 
 
@@ -10,40 +9,64 @@ class ReceiptsView(Frame):
         super().__init__(parent)
 
         self.controller = controller
+        self.frames = {}  # Dictionnaire pour stocker les frames
+        self.widgets = {}  # Dictionnaire pour stocker tous les widgets
         self.createWidgets()
         self.displayWidgets()
 
+
     def createWidgets(self):
+        """
+        Méthode pour créer les widgets dans l'onglet
+        """
+        # Fonction pour ajouter un widget au dictionnaire des widgets plus facilement
+        def addWidget(widget, widgetName):
+            self.widgets[widgetName] = widget
+
+        # Callback pour les Comboboxes de sélection
         def cbxCb(event):
             self.controller.queryUpdate(
-                member=self.membersCbx.get(),
-                year=self.yearsCbx.get()
+                member=self.widgets["membersCbx"].get(),
+                year=self.widgets["yearsCbx"].get()
             )
 
+        # Callback pour préparer les emails
         def cbPrepareEmail():
             self.controller.prepareEmail()
             messagebox.showinfo("Succès de l'opération", "Les mails ont été préparés avec succès dans Thunderbird.")
             self.controller.updateViewData()
 
+        # Callback pour rafraîchir les données
         def cbRefresh():
             self.controller.updateViewData()
 
+        # Callback pour la sélection dans le Treeview
         def cbTreeview(event):
             self.controller.showBtns()
 
-        self.receiptsNtbk = Notebook(self)
+        # Création des widgets
 
-        self.regularsFr = Frame(self.receiptsNtbk)
-        self.irregularsFr = Frame(self.receiptsNtbk)
-        self.receiptsNtbk.add(self.irregularsFr, text="Dons ponctuels")
-        self.receiptsNtbk.add(self.regularsFr, text="Dons réguliers")
+        # Notebook pour afficher les onglets des dons réguliers et ponctuels
+        receiptsNtbk = Notebook(self)
+        addWidget(receiptsNtbk, "receiptsNtbk")
 
-        self.membersCbx = Combobox(self)
-        self.membersCbx.bind("<<ComboboxSelected>>", cbxCb)
+        # Frames pour les dons réguliers et ponctuels
+        self.frames["regularsFr"] = Frame(receiptsNtbk)
+        self.frames["irregularsFr"] = Frame(receiptsNtbk)
 
-        self.yearsCbx = Combobox(self)
-        self.yearsCbx.bind("<<ComboboxSelected>>", cbxCb)
+        receiptsNtbk.add(self.frames["regularsFr"], text="Dons ponctuels")
+        receiptsNtbk.add(self.frames["irregularsFr"], text="Dons réguliers")
 
+        # Comboboxes pour les membres et les années
+        membersCbx = Combobox(self)
+        membersCbx.bind("<<ComboboxSelected>>", cbxCb)
+        addWidget(membersCbx, "membersCbx")
+
+        yearsCbx = Combobox(self)
+        yearsCbx.bind("<<ComboboxSelected>>", cbxCb)
+        addWidget(yearsCbx, "yearsCbx")
+
+        # Configuration des colonnes du Treeview
         columns = [
             {"id": "#0", "name": "Adhérent", "width": 150, "sort": False},
             {"id": "date", "name": "Date", "width": 100, "sort": True, "sortType": "datetime"},
@@ -51,32 +74,46 @@ class ReceiptsView(Frame):
             {"id": "amount", "name": "Montant", "width": 100, "sort": True, "sortType": "float"},
             {"id": "status", "name": "Statut", "width": 100, "sort": True},
         ]
-        self.receiptsIrregTrv = Treeview(self.irregularsFr, columns=[col["id"] for col in columns[1:]])
-        self.receiptsIrregTrv.bind("<ButtonRelease-1>", cbTreeview)
-        self.receiptsRegTrv = Treeview(self.regularsFr, columns=[col["id"] for col in columns[1:]])
-        self.receiptsRegTrv.bind("<ButtonRelease-1>", cbTreeview)
 
+        # Treeview pour les reçus irréguliers et réguliers
+        receiptsIrregTrv = Treeview(self.frames["irregularsFr"], columns=[col["id"] for col in columns[1:]])
+        receiptsIrregTrv.bind("<ButtonRelease-1>", cbTreeview)
+        addWidget(receiptsIrregTrv, "receiptsIrregTrv")
+
+        receiptsRegTrv = Treeview(self.frames["regularsFr"], columns=[col["id"] for col in columns[1:]])
+        receiptsRegTrv.bind("<ButtonRelease-1>", cbTreeview)
+        addWidget(receiptsRegTrv, "receiptsRegTrv")
+
+        # Configuration des colonnes des Treeview avec tri si applicable
         for col in columns:
-            for treeview in [self.receiptsRegTrv, self.receiptsIrregTrv]:
+            for treeview in [self.widgets["receiptsRegTrv"], self.widgets["receiptsIrregTrv"]]:
                 treeview.column(col["id"], width=col["width"])
-                treeview.heading(col["id"], text=col["name"], command=lambda col=col, trv=treeview: sortTreeviewCol(trv, col, False))
+                treeview.heading(col["id"], text=col["name"],
+                                 command=lambda col=col, trv=treeview: sortTreeviewCol(trv, col, False))
 
-        self.openReceiptBtn = Button(self, text="Ouvrir le reçu", command=self.controller.openReceiptCb)
+        # Bouton pour ouvrir un reçu
+        openReceiptBtn = Button(self, text="Ouvrir le reçu", command=self.controller.openReceiptCb)
+        addWidget(openReceiptBtn, "openReceiptBtn")
 
-        self.prepareEmailBtn = Button(self, text="Préparer le mail", command=cbPrepareEmail)
+        # Bouton pour préparer les emails
+        prepareEmailBtn = Button(self, text="Préparer le mail", command=cbPrepareEmail)
+        addWidget(prepareEmailBtn, "prepareEmailBtn")
 
-        self.progressBar = ProgressBarManager(self)
+        # Barre de progression
+        progressBar = ProgressBarManager(self)
+        addWidget(progressBar, "progressBar")
 
-        self.refreshBtn = Button(self, text="Actualiser", command=cbRefresh)
+        # Bouton pour actualiser la vue
+        refreshBtn = Button(self, text="Actualiser", command=cbRefresh)
+        addWidget(refreshBtn, "refreshBtn")
+
 
     def displayWidgets(self):
-        self.receiptsNtbk.pack()
-        self.membersCbx.pack()
-        self.yearsCbx.pack()
-        self.receiptsRegTrv.pack()
-        self.receiptsIrregTrv.pack()
+        """
+        Méthode pour afficher les widgets dans l'onglet
+        """
 
-        self.progressBar.pack()
-
-        self.refreshBtn.pack()
+        # On affiche tous les widgets
+        for widget in self.widgets.values():
+            widget.pack()
 

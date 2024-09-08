@@ -1,4 +1,3 @@
-from glob import glob
 from os.path import isfile
 from pathlib import Path
 

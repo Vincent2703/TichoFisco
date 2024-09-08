@@ -6,7 +6,7 @@ from utils import FileManager
 from utils.FileManager import getDataFromPaymentsFile, exportMembersFile, exportMemberReceipts
 from utils.LogManager import LogManager
 from utils.PathManager import PathManager
-from utils.Thunderbird import Thunderbird
+from models.Thunderbird import Thunderbird
 from utils.misc import openDir, isFileInUse
 
 
@@ -53,6 +53,14 @@ class Update:
         return True
 
     def processPayments(self):
+        """
+        Fonction principale pour faire une mise à jour.
+        Récupère les informations des fichiers de paiement.
+        Exportation des listes d'adhérents, des reçus fiscaux, du fichier de cache et des contacts sur Thunderbird.
+
+        Retourne :
+            - Le plus haut statut des logs "update" générés. Indique s'il y a eu des problèmes (critiques ou non).
+        """
         PathManager().update()
         self.paths = PathManager().getPaths()
         self.paymentFiles = self.paths["paymentFilesPatterns"].items()
@@ -105,8 +113,14 @@ class Update:
         return LogManager().getHigherStatusOf("update")
 
     def getPaymentsData(self):
-        payments = {}
+        """
+        Récupère les informations de paiement à partir des fichiers.
 
+        Retourne :
+            - Les paiements groupés par année et par mail d'dhérent.
+                La liste des paiements de chaque adhérent est trié par ordre chronologique.
+        """
+        payments = {}  # Par année et par mail d'adhérent
         for source, filePaths in self.paymentFiles:
             for filePath in filePaths:
                 self.progressBar.incrementProgress(labelTxt="Traitement des fichiers de paiements", showStep=True, hideAfterFinish=False)
@@ -115,9 +129,25 @@ class Update:
                     email = payment.email
                     payments.setdefault(year, {}).setdefault(email, []).append(payment)  # Ajout l'année et l'email s'il n'y a pas déjà l'entrée
 
+        # Trier les paiements pour chaque membre par date
+        for year, members in payments.items():
+            for email, paymentList in members.items():
+                paymentList.sort(key=lambda p: datetime.strptime(p.date, "%d/%m/%Y"))  # Tri par date
+
         return payments
 
     def createMembers(self, payments, existingMembersData):
+        """
+        Cette fonction crée ou met à jour des instances Member à partir des données de paiement fournies et des données existantes des membres.
+
+        Paramètres :
+            payments (dict): Un dictionnaire contenant les paiements des membres groupés par année et par mail d'adhérent.
+            existingMembersData (dict): Un dictionnaire similaire contenant les données existantes des membres (remarques, tarifs, etc.).
+
+        Retourne :
+            dict: Un dictionnaire trié chronologiquement contenant les membres par année et email.
+            dict: Un dictionnaire associant les emails des membres à leurs informations de contact (prénom et nom).
+        """
         self.progressBar.setNbSteps(sum(len(member) for member in payments.values()))
 
         emailContacts = {}
@@ -233,6 +263,13 @@ class Update:
                                 break  # On met à jour le statut une seule fois
 
     def exportFiles(self, membersByYear):
+        """
+          Exporte les listes d'adhérents pour chaque année et génère les reçus fiscaux.
+          La barre de progression est mise à jour à chaque étape.
+
+          Paramètres :
+              membersByYear (dict): Un dictionnaire contenant les membres classés par année et email.
+          """
         self.progressBar.setNbSteps(len(membersByYear.items())*2)
 
         for year, members in membersByYear.items():
@@ -243,6 +280,13 @@ class Update:
         self.progressBar.resetProgress()
 
     def saveCacheAndEmailContacts(self, emailContacts):
+        """
+            Sauvegarde le cache et exporte les contacts des membres vers Thunderbird.
+            La barre de progression est mise à jour.
+
+            Paramètres :
+                emailContacts (dict): Un dictionnaire contenant les emails et noms des contacts à exporter.
+            """
         self.progressBar.setNbSteps(2)
 
         # On sauvegarde la liste de contacts Thunderbird

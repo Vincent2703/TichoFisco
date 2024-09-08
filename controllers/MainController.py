@@ -5,7 +5,7 @@ from controllers.tabs.Settings import Settings
 from controllers.tabs.Update import Update
 from models.Save import Save
 from utils.LogManager import LogManager
-from utils.MessageBoxDetails import MessageBoxDetails
+from utils.customTkinter.MessageBoxDetails import MessageBoxDetails
 from utils.misc import centerTkinterWindow
 from views.ReceiptsView import ReceiptsView
 from views.UpdateView import UpdateView
@@ -67,9 +67,16 @@ class MainController:
     def _onTabClicked(self, event):
         """
         Méthode déclenchée lorsque l'on clique sur un onglet.
-        Vérifie les paramètres à chaque clic d'onglet.
+        Vérifie les paramètres avant de permettre le changement d'onglet.
         """
-        self._checkSettings()
+        clicked_tab = event.widget.identify(event.x, event.y)
+
+        if clicked_tab == "label" and not Save().isSettingsFilled():
+            # Annule le changement d'onglet si les paramètres ne sont pas remplis
+            detailsMsg = LogManager().getLogTypeMsgsAsString("Settings")
+            self.notebook.select(2)  # Redirige vers l'onglet "Options"
+            MessageBoxDetails("Paramètre(s) manquant(s)", "Veuillez renseigner les paramètres manquants.", detailsMsg)
+            return "break"  # Empêche l'événement de se propager et de changer d'onglet
 
     def _onTabChanged(self, event):
         """

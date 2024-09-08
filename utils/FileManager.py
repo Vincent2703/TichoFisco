@@ -16,17 +16,18 @@ from models.Save import Save
 from utils import styles, misc
 from utils.LogManager import LogManager
 from utils.PathManager import PathManager
-from utils.Thunderbird import Thunderbird
+from models.Thunderbird import Thunderbird
 
 
-def getDataFromPaymentsFile(path, source):
+def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs morceaux
+    print(path)
     payments = []
 
     def isEmptyRow(row):
         """
         Vérifie si une ligne est complètement vide.
         """
-        return all(cell.value is None or cell.value == "" for cell in row)
+        return all(cell.value is None or cell.value == '' for cell in row)
 
     def getMissingRequiredCol(row, requiredCols):
         missingCols = []
@@ -60,43 +61,58 @@ def getDataFromPaymentsFile(path, source):
         if source == "helloAsso":
             requiredCols = {"montant":1, "date":2, "nom de famille":5, "prénom":6, "adresse mail":7}
             for row in sheet.iter_rows(min_row=2):
-                if all(row[idx].value is not None for idx in requiredCols.values()):
-                    newPayment = Payment(
-                        email=row[7].value,
-                        lastName=row[5].value,
-                        firstName=row[6].value,
-                        date=row[2].value.strftime("%d/%m/%Y"),
-                        regular=row[8].value == "Crowdfunding",
-                        address=row[9].value,
-                        postalCode=str(row[10].value),
-                        city=row[11].value,
-                        phone='',
-                        amount=float(row[1].value),
-                        source=source,
-                        refPayment=row[0].value
-                    )
-                    addToPayments(newPayment)
+                if isEmptyRow(row):
+                    continue  # Si ligne vide, on ignore et on passe à la suivante
+                missingCols = getMissingRequiredCol(row, requiredCols)
+                if missingCols:
+                    addWarningMissingCols(row[0].row, missingCols)
+                    continue  # Si ligne manque des valeurs obligatoires, on affiche un message et on ignore la ligne
+
+                newPayment = Payment(
+                    email=row[7].value,
+                    lastName=row[5].value,
+                    firstName=row[6].value,
+                    date=row[2].value.strftime("%d/%m/%Y"),
+                    regular=row[8].value == "Crowdfunding",
+                    address=row[9].value,
+                    postalCode=str(row[10].value),
+                    city=row[11].value,
+                    phone='',
+                    amount=float(row[1].value),
+                    source=source,
+                    refPayment=row[0].value
+                )
+                addToPayments(newPayment)
 
         elif source == "paypal":
-            requiredCols = [0, 2, 8, 9, 4]
+            requiredCols = {"date":0, "noms":2, "montant":8, "adresse mail":9, "état":4}
             for row in sheet.iter_rows(min_row=4):
-                if all(row[idx].value is not None for idx in requiredCols) and row[4].value == "Terminé" and float(row[8].value) > 0:
-                    names = row[2].value.rsplit(' ', 1)
-                    newPayment = Payment(
-                        email=row[9].value,
-                        lastName=names[0],
-                        firstName=names[1],
-                        date=row[0].value.strftime("%d/%m/%Y"),
-                        regular=row[3].value == "Paiement d'abonnement",
-                        address=row[11].value,
-                        postalCode=str(row[13].value or ''),
-                        city=row[12].value,
-                        phone='',
-                        amount=float(row[6].value),
-                        source=source,
-                        refPayment=row[10].value
-                    )
-                    addToPayments(newPayment)
+                if row[4].value != "Terminé" or float(row[8].value) == 0 or row[3].value not in ("Paiement de don", "Paiement d'abonnement"):
+                    continue
+                if isEmptyRow(row):
+                    continue  # Si ligne vide, on ignore et on passe à la suivante
+                missingCols = getMissingRequiredCol(row, requiredCols)
+                if missingCols:
+                    addWarningMissingCols(row[0].row, missingCols)
+                    continue  # Si ligne manque des valeurs obligatoires, on affiche un message et on ignore la ligne
+
+                names = row[2].value.rsplit(' ', 1)
+                newPayment = Payment(
+                    email=row[9].value,
+                    lastName=names[0],
+                    firstName=names[1],
+                    date=row[0].value.strftime("%d/%m/%Y"),
+                    regular=row[3].value == "Paiement d'abonnement",
+                    address=row[11].value,
+                    postalCode=str(row[13].value or ''),
+                    city=row[12].value,
+                    phone='',
+                    amount=float(row[6].value),
+                    source=source,
+                    refPayment=row[10].value
+                )
+                print("fm :", newPayment.date, row[0].value)  # Pas bon ici non plus
+                addToPayments(newPayment)
 
         elif source == "virEspChq":
             requiredCols = {"date":0, "adresse mail":2, "nom de famille":3, "prénom":4, "montant":8}
@@ -362,6 +378,7 @@ def _exportReceipts(receipts):  # TODO : Vérifier si erreur avant de faire expo
 
 
 def importMembers():  # S'il y a plusieurs fois le même membre dans plusieurs listes, on fusionne ses ID de reçus
+    PathManager().update()
     paths = PathManager().getPaths()
     memberListsPattern = paths["memberListsPattern"]
 

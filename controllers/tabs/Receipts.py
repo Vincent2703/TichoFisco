@@ -4,7 +4,7 @@ from tkinter import END
 from models.Save import Save
 from utils.FileManager import importMembers, importReceipts
 from utils.PathManager import PathManager
-from utils.Thunderbird import Thunderbird
+from models.Thunderbird import Thunderbird
 from utils.misc import openFile
 
 ALL_MEMBERS = "Tous les adhérents"
@@ -15,21 +15,27 @@ class Receipts:
     def __init__(self, view=None):
         self.selectedMember = None
         self.view = view
-        if self.view:
-            self.progressBar = view.progressBar
-            self.lastQuery = None
-
+        self.frames = self.view.frames if self.view else None
+        self.widgets = self.view.widgets if self.view else None
+        self.lastQuery = None
         self.paths = PathManager().getPaths()
         self.members = self._getMembersList()
         self.receipts = self._getReceiptsList()
 
     def setView(self, view):
+        """
+        Associe une vue à l'instance de Receipts.
+        """
         self.view = view
         if self.view:
-            self.progressBar = view.progressBar
+            self.frames = self.view.frames
+            self.widgets = self.view.widgets
             self.lastQuery = None
 
     def updateViewData(self, reloadFiles=True, reloadQuery=True):
+        """
+        Met à jour les données de la vue.
+        """
         if self.view:
             if reloadFiles:
                 self.members = self._getMembersList()
@@ -40,137 +46,164 @@ class Receipts:
             self._hideBtns()
 
     def _setMembersCbxValues(self, members):
+        """
+        Définit les valeurs du combobox des membres.
+        """
         membersList = list(members.values())
         membersList.insert(0, ALL_MEMBERS)
-        self.view.membersCbx["values"] = membersList
-        self.view.membersCbx.set(ALL_MEMBERS)
+        membersCbx = self.widgets["membersCbx"]
+        membersCbx["values"] = membersList
+        membersCbx.set(ALL_MEMBERS)
 
     def _setReceiptsTrvsValues(self, receipts):
-        # Suppression des données existantes dans les Treeviews
-        for treeview in [self.view.receiptsRegTrv, self.view.receiptsIrregTrv]:
-            for row in treeview.get_children():
-                treeview.delete(row)
+        """
+        Remplit les Treeviews avec les reçus des membres.
+        """
+        regTrv, irregTrv = self.widgets["receiptsRegTrv"], self.widgets["receiptsIrregTrv"]
+        self._clearTreeviews([regTrv, irregTrv])
 
-        # Insertion des nouveaux reçus dans les Treeviews
+        # Insertion des reçus réguliers et irréguliers
         for email, regReceipts in receipts["regulars"].items():
             for id, receipt in regReceipts.items():
-                self.view.receiptsRegTrv.insert('', END, text=email,
-                                                values=(receipt["date"], id, receipt["amount"], receipt["emailStatus"]))
+                regTrv.insert('', END, text=email, values=(receipt["date"], id, receipt["amount"], receipt["emailStatus"]))
 
         for email, irregReceipts in receipts["irregulars"].items():
             for id, receipt in irregReceipts.items():
-                self.view.receiptsIrregTrv.insert('', END, text=email,
-                                                  values=(receipt["date"], id, receipt["amount"], receipt["emailStatus"]))
+                irregTrv.insert('', END, text=email, values=(receipt["date"], id, receipt["amount"], receipt["emailStatus"]))
 
         nbReceipts = self._getNbReceipts(receipts)
         self._setNbReceiptsNtbkTab("regulars", nbReceipts["regulars"])
         self._setNbReceiptsNtbkTab("irregulars", nbReceipts["irregulars"])
 
+    def _clearTreeviews(self, treeviews):
+        """
+        Supprime les données des Treeviews.
+        """
+        for treeview in treeviews:
+            for row in treeview.get_children():
+                treeview.delete(row)
+
     def _setYearsCbxValues(self, years):
+        """
+        Définit les valeurs du combobox des années.
+        """
+        yearsCbx = self.widgets["yearsCbx"]
         if len(years) == 0 or years[0] != ALL_YEARS:
             years.insert(0, ALL_YEARS)
-        self.view.yearsCbx["values"] = years
-        self.view.yearsCbx.set(ALL_YEARS)
+        yearsCbx["values"] = years
+        yearsCbx.set(ALL_YEARS)
 
     def _getMembersList(self):
+        """
+        Retourne la liste des membres importés.
+        """
         return importMembers()
 
     def _getReceiptsList(self):
+        """
+        Retourne la liste des reçus importés.
+        """
         return importReceipts()
 
     def _getKVMembersCbx(self):
+        """
+        Retourne un dictionnaire des membres avec leur email en clé et leur nom complet en valeur.
+        """
         dictMembers = {}
         members = dict(sorted(self.members.items(), key=lambda item: item[1]["lastName"]))
         for email, member in members.items():
-            dictMembers[email] = f"{member["lastName"]} {member["firstName"]}"
-
+            dictMembers[email] = f"{member['lastName']} {member['firstName']}"
         return dictMembers
 
     def _getAllReceipts(self):
-        receiptsByRegStatus = {
-            "regulars": {},
-            "irregulars": {}
-        }
+        """
+        Retourne tous les reçus, séparés en réguliers et irréguliers.
+        """
+        receiptsByRegStatus = {"regulars": {}, "irregulars": {}}
         for email, receipts in self.receipts.items():
             for id, receipt in receipts.items():
                 regKey = "regulars" if receipt["regular"] else "irregulars"
                 receiptsByRegStatus[regKey].setdefault(email, {})[id] = receipt
-
         return receiptsByRegStatus
 
     def _getReceiptsByEmail(self, email):
-        receiptsByRegStatus = {
-            "regulars": {email: {}},
-            "irregulars": {email: {}}
-        }
+        """
+        Retourne les reçus d'un membre par son email.
+        """
+        receiptsByRegStatus = {"regulars": {email: {}}, "irregulars": {email: {}}}
         if email in self.receipts:
             for id, receipt in self.receipts[email].items():
                 regKey = "regulars" if receipt["regular"] else "irregulars"
                 receiptsByRegStatus[regKey][email][id] = receipt
-
         return receiptsByRegStatus
 
     def _getYears(self):
+        """
+        Retourne la liste des années disponibles dans les reçus fiscaux.
+        """
         return os.listdir(str(self.paths["recusFiscaux"]))
 
     def queryUpdate(self, member=ALL_MEMBERS, year=ALL_YEARS, reloadQuery=False):
+        """
+        Met à jour les reçus en fonction du membre et de l'année sélectionnés.
+        """
         if reloadQuery and self.lastQuery:
-            member = self.lastQuery["member"]
-            year = self.lastQuery["year"]
-        self.lastQuery = {"member":member, "year":year}
+            member, year = self.lastQuery["member"], self.lastQuery["year"]
+        self.lastQuery = {"member": member, "year": year}
 
-        # Si tous les membres sont sélectionnés
         if member == ALL_MEMBERS:
             receipts = self._getAllReceipts()
             self._setYearsCbxValues(self._getYears())
         else:
-            # Trouver l'email du membre sélectionné
             memberEmail = next((k for k, v in self._getKVMembersCbx().items() if v == member), None)
             receipts = self._getReceiptsByEmail(memberEmail)
             self._setYearsCbxValues(self.members[memberEmail]["years"])
 
-        # Filtrage des reçus par an si une année spécifique est sélectionnée
         if year != ALL_YEARS:
             receipts = self._filterReceiptsByYear(receipts, year)
 
         self._setReceiptsTrvsValues(receipts)
-        self.view.membersCbx.set(member)
-        self.view.yearsCbx.set(year)
 
     def _getNbReceipts(self, receipts):
+        """
+        Retourne le nombre de reçus réguliers et irréguliers.
+        """
         nbReceipts = {"regulars": 0, "irregulars": 0}
         for regStatus, members in receipts.items():
-            for email, memberReceipts in members.items():
-                nbReceipts[regStatus] += len(memberReceipts)
+            nbReceipts[regStatus] += sum(len(memberReceipts) for memberReceipts in members.values())
         return nbReceipts
 
     def _setNbReceiptsNtbkTab(self, regStatus, nb):
-        if regStatus == "irregulars":
-            self.view.receiptsNtbk.tab(0, text=f"Dons ponctuels ({nb})")
-        elif regStatus == "regulars":
-            self.view.receiptsNtbk.tab(1, text=f"Dons réguliers ({nb})")
+        """
+        Met à jour l'onglet des reçus avec le nombre de reçus.
+        """
+        receiptsNtbk = self.widgets["receiptsNtbk"]
+        tabText = f"Dons réguliers ({nb})" if regStatus == "regulars" else f"Dons ponctuels ({nb})"
+        receiptsNtbk.tab(1 if regStatus == "regulars" else 0, text=tabText)
 
     def _filterReceiptsByYear(self, receipts, year):
+        """
+        Filtre les reçus par année.
+        """
         filteredReceipts = {"regulars": {}, "irregulars": {}}
         for regStatus, membersReceipts in receipts.items():
             for email, memberReceipts in membersReceipts.items():
-                for id, receipt in memberReceipts.items():
-                    if receipt["date"].endswith(year):
-                        if email not in filteredReceipts[regStatus]:
-                            filteredReceipts[regStatus][email] = {}
-                        filteredReceipts[regStatus][email][id] = receipt
+                filteredReceipts[regStatus][email] = {id: receipt for id, receipt in memberReceipts.items() if receipt["date"].endswith(year)}
         return filteredReceipts
 
     def _getSelectedRows(self):
-        view = self.view
+        receiptsNtbk = self.widgets["receiptsNtbk"]
+        regularsFr = self.frames["regularsFr"]
+        regTrv, irregTrv = self.widgets["receiptsRegTrv"], self.widgets["receiptsIrregTrv"]
+
         # Identifier la frame active
-        activeFrame = view.receiptsNtbk.nametowidget(view.receiptsNtbk.select())
+        activeFrame = receiptsNtbk.nametowidget(receiptsNtbk.select())
 
         # En fonction de la frame active, récupérer le Treeview correspondant
-        if activeFrame == view.regularsFr:
-            activeTreeview = view.receiptsRegTrv
+        if activeFrame == regularsFr:
+            activeTreeview = regTrv
         else:
-            activeTreeview = view.receiptsIrregTrv
+            activeTreeview = irregTrv
 
         # Obtenir la ligne sélectionnée dans le Treeview actif
         selection = activeTreeview.selection()
@@ -188,7 +221,7 @@ class Receipts:
             return allValues
         return False
 
-    def _getPathFromID(self, ID):  # TODO A déplacer
+    def _getPathFromID(self, ID):
         # Pour bien faire, il faudrait avoir le chemin du reçu dans une colonne cachée
         # Mais là on va juste le récupérer via son ID
         year = f"20{ID[:2]}"
@@ -197,42 +230,56 @@ class Receipts:
         return path
 
     def openReceiptCb(self):
+        """
+        Ouvre les reçus sélectionnés dans un visualiseur externe.
+        """
         selection = self._getSelectedRows()
         if selection:
             for row in selection:
-                # On récupère son identifiant
                 receiptID = row[2]
                 path = self._getPathFromID(receiptID)
                 openFile(path)
 
     def prepareEmail(self):
+        """
+        Prépare l'envoi des reçus par email via Thunderbird.
+        """
         selection = self._getSelectedRows()
         nbSteps = len(selection)
+        progressBar = self.widgets["progressBar"]
         thunderbirdRunning = Thunderbird().isRunning()
         preparedEmails = []
+
         if thunderbirdRunning:
             nbSteps += 1
+
         if selection:
-            self.progressBar.setNbSteps(nbSteps)
+            progressBar.setNbSteps(nbSteps)
             for row in selection:
-                toEmail = row[0]
-                idReceipt = row[2]
+                toEmail, idReceipt = row[0], row[2]
                 filePath = self._getPathFromID(idReceipt)
                 Thunderbird().addMail(to=toEmail, filePath=filePath)
-                self.progressBar.incrementProgress(labelTxt="Nombre de mails préparés", showStep=True)
+                progressBar.incrementProgress(labelTxt="Nombre de mails préparés", showStep=True)
                 preparedEmails.append({"emailMember": toEmail, "idReceipt": idReceipt, "emailStatus": 1})
-        if thunderbirdRunning:
-            self.progressBar.incrementProgress(labelTxt="Redémarrage de Thunderbird en cours")
-            Thunderbird().reloadThunderbird()
 
-        if len(preparedEmails) > 0:
+            if thunderbirdRunning:
+                progressBar.incrementProgress(labelTxt="Redémarrage de Thunderbird en cours")
+                Thunderbird().reloadThunderbird()
+
+        if preparedEmails:
             Save().updateMembersReceiptsEmailStatus(preparedEmails)
 
     def _hideBtns(self):
-        self.view.openReceiptBtn.pack_forget()
-        self.view.prepareEmailBtn.pack_forget()
+        """
+        Cache les boutons d'ouverture de reçus et de préparation d'email.
+        """
+        self.widgets["openReceiptBtn"].pack_forget()
+        self.widgets["prepareEmailBtn"].pack_forget()
 
     def showBtns(self):
-        self.view.openReceiptBtn.pack()
-        self.view.prepareEmailBtn.pack()
+        """
+        Affiche les boutons d'ouverture de reçus et de préparation d'email.
+        """
+        self.widgets["openReceiptBtn"].pack()
+        self.widgets["prepareEmailBtn"].pack()
 

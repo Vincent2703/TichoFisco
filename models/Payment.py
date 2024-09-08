@@ -20,6 +20,7 @@ class Payment:
         dateRegex = r'^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/(\d{4})$'
         if re.match(dateRegex, date):
             self.date = date
+            print(date)  # Problème ! Pas le bon mois
             self.year = int(date[6:10])
         else:
             self.setNoValid(f"Date incorrect : '{date}'")

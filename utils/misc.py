@@ -1,7 +1,6 @@
 import ctypes
 import os.path
 import platform
-import re
 import subprocess
 import time
 from datetime import datetime
@@ -12,19 +11,28 @@ from utils.LogManager import LogManager
 
 
 def saveHiddenFile(filename, content, binary=False):
-    # Écrire le contenu dans le fichier
+    """
+    Sauvegarde un fichier en mode caché. Si le fichier existe déjà, il est supprimé et recréé.
+    Sous Windows, le fichier est directement marqué comme caché ; sous Linux, le fait que le nom du fichier soit préfixé par un point suffit.
+
+    Paramètres :
+        filename : Chemin du fichier à sauvegarder.
+        content : Contenu à écrire dans le fichier.
+        binary : Indique si le contenu doit être écrit en mode binaire (False par défaut).
+    """
     if isfile(filename):
-        os.remove(filename)  # r+ ?
+        os.remove(filename)  # Supprimer l'ancien fichier
 
-    mode = "w+"
-
+    mode = "w+"  # Mode écriture
     if binary:
-        mode += 'b'
+        mode += 'b'  # Ajouter l'option binaire si nécessaire
+
+    # Écriture du contenu dans le fichier
     with open(filename, mode) as file:
         file.write(content)
 
     if platform.system() == "Windows":
-        # Définir l'attribut de fichier caché sous Windows
+        # Marquer le fichier comme caché sous Windows
         FILE_ATTRIBUTE_HIDDEN = 0x02
         try:
             ctypes.windll.kernel32.SetFileAttributesW(ctypes.create_unicode_buffer(str(filename)),
@@ -33,13 +41,22 @@ def saveHiddenFile(filename, content, binary=False):
             LogManager().addLog("OS", LogManager.LOGTYPE_ERROR,
                                 f"Erreur lors de la définition de l'attribut caché : {e}")
     else:
-        # Renommer le fichier pour qu'il commence par un point sous Linux
+        # Sous Linux, préfixer le nom du fichier avec un point pour le cacher
         if not filename.startswith('.'):
             os.rename(filename, '.' + filename)
 
 
 def openDir(path):
-    path = os.path.normpath(path)
+    """
+    Ouvre un répertoire dans l'explorateur de fichiers de l'OS.
+
+    Paramètre :
+        path: Chemin du répertoire à ouvrir.
+
+    Retourne :
+        True si l'ouverture est réussie, False sinon.
+    """
+    path = os.path.normpath(path)  # Normaliser le chemin
 
     if os.path.isdir(path):
         OS = platform.system()
@@ -54,23 +71,39 @@ def openDir(path):
 
 
 def openFile(path):
-    path = os.path.normpath(path)
+    """
+    Ouvre un fichier avec l'application par défaut de l'OS.
+
+    Paramètres :
+        path : Chemin du fichier à ouvrir.
+
+    Retourne :
+        True si l'ouverture est réussie, False sinon.
+    """
+    path = os.path.normpath(path)  # Normaliser le chemin
 
     if os.path.isfile(path):
-        #todo : try except
         OS = platform.system()
         if OS == "Windows":
-            os.startfile(path)
+            os.startfile(path)  # Ouvrir le fichier sous Windows
             return True
         elif OS == "Linux":
-            subprocess.call(["xdg-open", path])
+            subprocess.call(["xdg-open", path])  # Ouvrir le fichier sous Linux
             return True
     LogManager().addLog("OS", LogManager.LOGTYPE_ERROR, f"Impossible d'ouvrir le fichier : '{path}'")
     return False
 
 
-def convertFrenchDate(frenchDateStr):  # TODO : check error
-    # Dictionnaire pour mapper les mois français aux mois anglais
+def convertFrenchDate(frenchDateStr):
+    """
+    Convertit une date au format français (avec les mois en français) en datetime.
+
+    Paramètre :
+        frenchDateStr : Chaîne de caractères contenant la date en français.
+
+    Retourne :
+        Un objet datetime correspondant à la date.
+    """
     frenchToEnglishMonths = {
         "Janvier": "January", "Février": "February", "Mars": "March",
         "Avril": "April", "Mai": "May", "Juin": "June",
@@ -79,16 +112,27 @@ def convertFrenchDate(frenchDateStr):  # TODO : check error
     }
 
     # Remplacer le mois français par le mois anglais
+    englishDateStr = frenchDateStr
     for frenchMonth, englishMonth in frenchToEnglishMonths.items():
         if frenchMonth in frenchDateStr:
             englishDateStr = frenchDateStr.replace(frenchMonth, englishMonth)
             break
 
-    # Convertir la chaîne modifiée en objet datetime
-    return datetime.strptime(englishDateStr, "%B %d, %Y @ %I:%M %p")
+    # Gestion d'erreurs lors de la conversion
+    try:
+        return datetime.strptime(englishDateStr, "%B %d, %Y @ %I:%M %p")
+    except ValueError as e:
+        LogManager().addLog("OS", LogManager.LOGTYPE_ERROR, f"Erreur lors de la conversion de la date : {e}")
+        raise
 
 
-def centerTkinterWindow(win):  # From https://stackoverflow.com/a/10018670
+def centerTkinterWindow(win):
+    """
+    Centre une fenêtre Tkinter sur l'écran.
+
+    Paramètre :
+        win : Fenêtre Tkinter à centrer.
+    """
     win.update_idletasks()
     width = win.winfo_width()
     frm_width = win.winfo_rootx() - win.winfo_x()
@@ -102,7 +146,15 @@ def centerTkinterWindow(win):  # From https://stackoverflow.com/a/10018670
     win.deiconify()
 
 
-def sortTreeviewCol(trv, col, reverse=False):  # Fonction basée sur https://stackoverflow.com/a/61495299
+def sortTreeviewCol(trv, col, reverse=False):
+    """
+    Trie les colonnes d'un Treeview en fonction de leur contenu.
+
+    Paramètres :
+        trv : Widget Treeview à trier.
+        col : Colonne à trier.
+        reverse : Indique si le tri doit être inversé (False par défaut).
+    """
     if not col["sort"]:
         return
 
@@ -118,20 +170,15 @@ def sortTreeviewCol(trv, col, reverse=False):  # Fonction basée sur https://sta
     for i, (val, k) in enumerate(l):
         if sortType == "datetime":
             try:
-                # Convertir la valeur en datetime pour le tri
                 l[i] = (datetime.strptime(val, "%d/%m/%Y"), k)
             except ValueError:
-                # Gérer les dates invalides en les mettant au min
-                l[i] = (datetime.min, k)
+                l[i] = (datetime.min, k)  # Gérer les dates invalides
         elif sortType == "float":
             try:
-                # Convertir la valeur en float pour le tri
                 l[i] = (float(val), k)
             except ValueError:
-                # Gérer les flottants invalides en les mettant au min
-                l[i] = (float('-inf'), k)
+                l[i] = (float('-inf'), k)  # Gérer les flottants invalides
         else:
-            # Pour les autres types, on garde la valeur telle quelle
             l[i] = (val, k)
 
     # Trier la liste basée sur les valeurs converties
@@ -141,24 +188,51 @@ def sortTreeviewCol(trv, col, reverse=False):  # Fonction basée sur https://sta
     for index, (val, k) in enumerate(l):
         trv.move(k, '', index)
 
-    # Configurer le header pour permettre de trier dans l'autre sens lors du prochain clic
+    # Configurer le header pour trier dans l'autre sens lors du prochain clic
     trv.heading(colID, command=lambda: sortTreeviewCol(trv, col, not reverse))
 
+
 def getEpoch():
+    """
+    Retourne le temps UNIX actuel (en secondes depuis 1970).
+
+    Retourne :
+        int : Le temps UNIX actuel.
+    """
     return int(time.time())
 
+
 def epochToFrDate(epoch):
+    """
+    Convertit un timestamp UNIX en une date formatée en français.
+
+    Paramètre :
+        epoch : Timestamp UNIX à convertir.
+
+    Retourne :
+        str : Date formatée en "dd/mm/YYYY HH:MM".
+    """
     return time.strftime("%d/%m/%Y %H:%M", time.localtime(epoch))
 
-def isFileInUse(filepath):  # Basé sur https://stackoverflow.com/a/66598940
+
+def isFileInUse(filepath):
+    """
+    Vérifie si un fichier est en cours d'utilisation.
+
+    Paramètre :
+        filepath : Chemin du fichier à vérifier.
+
+    Retourne :
+        bool : True si le fichier est en cours d'utilisation, False sinon.
+    """
     path = Path(filepath)
 
     if not path.exists():
         return False
 
     try:
-        path.rename(path)
+        path.rename(path)  # Si le fichier peut être renommé, il n'est pas utilisé
     except PermissionError:
-        return True
+        return True  # Erreur de permission signifie que le fichier est en cours d'utilisation
     else:
         return False

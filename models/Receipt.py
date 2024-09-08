@@ -42,8 +42,6 @@ class Receipt:
         else:
             self.source = source
 
-        #self.emailStatus = None
-
     def getDataDict(self, editionDate=True):
         member = self.member
         dict = {

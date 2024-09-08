@@ -9,7 +9,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 if __name__ == "__main__":
     # Création de la fenêtre principale de l'application
     root = Tk()
+    root.iconbitmap("assets/tichoFiscoIcon.ico")  # Icône de l'application
     root.geometry("800x450")  # Dimensions de la fenêtre
     controller = MainController(root)  # Contrôleur principal
+    root.resizable(False, False)  # Empêche le redimensionnement
     # Démarre Tkinter
     root.mainloop()

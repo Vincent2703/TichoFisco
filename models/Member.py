@@ -41,7 +41,6 @@ class Member:
             self.phone = phone
 
     def addPayment(self, payment):
-        minimalAmountForReceipt = Save().settings["receipts"]["minimalAmount"]
         paymentAmount = float(payment.amount)
 
         self.amounts["totalYear"] += paymentAmount
@@ -50,33 +49,29 @@ class Member:
 
         regularPayment = payment.regular
         if self.regular is None:
-            if regularPayment:
-                if payment.amount >= minimalAmountForReceipt or (self.regularPaymentsReceipt and self.regularPaymentsReceipt.amount + payment.amount >= minimalAmountForReceipt):
-                    self.regular = True
-            else:
-                self.regular = False
-        else:
-            if not regularPayment:
-                if self.regular:
-                    self.regular = "P&R"
-            elif not self.regular:
-                if payment.amount >= minimalAmountForReceipt or (self.regularPaymentsReceipt and self.regularPaymentsReceipt.amount + payment.amount >= minimalAmountForReceipt):
-                    self.regular = "P&R"
+            self.regular = bool(regularPayment)
+        elif regularPayment != self.regular:
+            self.regular = "P&R"
 
         if self.status is None:
             self.status = "NA"
         elif self.status == "NA":
             self.status = "DON-ADH"
 
-        if payment.regular:
+        if regularPayment:
             if self.regularPaymentsReceipt is None:
                 self.regularPaymentsReceipt = Receipt(self, paymentAmount, payment.source, payment.date,
                                                       payment.refPayment, True)
             else:
-                self.regularPaymentsReceipt.amount += paymentAmount
+                minimalAmountForReceipt = Save().settings["receipts"]["minimalAmount"]
+
+                totalAmount = self.regularPaymentsReceipt.amount + paymentAmount
+                self.regularPaymentsReceipt.amount = totalAmount
+                self.regularPaymentsReceipt.canBeExported = totalAmount >= minimalAmountForReceipt
                 self.regularPaymentsReceipt.source = payment.source
                 self.regularPaymentsReceipt.date = payment.date
-                self.regularPaymentsReceipt.refPayment = payment.refPayment
+                print(payment.refPayment, payment.date)
+                self.regularPaymentsReceipt.refPayment = payment.refPayment  # Utile ?
         else:
             receipt = Receipt(self, paymentAmount, payment.source, payment.date, payment.refPayment, False)
             if receipt.canBeExported:

@@ -3,8 +3,8 @@ from tkinter.ttk import Button, Frame
 
 from models.Save import Save
 from utils.LogManager import LogManager
-from utils.MessageBoxDetails import MessageBoxDetails
-from utils.ProgressBarManager import ProgressBarManager
+from utils.customTkinter.MessageBoxDetails import MessageBoxDetails
+from utils.customTkinter.ProgressBarManager import ProgressBarManager
 from utils.misc import epochToFrDate
 
 
@@ -54,10 +54,10 @@ class UpdateView(Frame):
         self.progressBar = ProgressBarManager(self)
 
     def displayWidgets(self):
-        self.updateBtn.pack()
-        self.openDirBtn.pack()
+        self.updateBtn.pack(ipadx=5, ipady=10, pady=15)
+        self.openDirBtn.pack(ipadx=5, ipady=5)
 
-        self.lastUpdateLbl.pack()
+        self.lastUpdateLbl.pack(pady=20)
 
         self.progressBar.pack()
 

@@ -10,6 +10,7 @@ class MessageBoxDetails(tk.Toplevel):  # Basé sur https://stackoverflow.com/a/5
     def __init__(self, title, message, detail='', iconType="info"):
         super().__init__()
         self.iconsPaths = PathManager().getPaths()["assets"]["icons"]
+        self.iconbitmap("assets/tichoFiscoIcon.ico")  # todo : mettre le chemin dans PathManager
 
         self.details_expanded = False
         self.title(title)

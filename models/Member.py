@@ -70,8 +70,7 @@ class Member:
                 self.regularPaymentsReceipt.canBeExported = totalAmount >= minimalAmountForReceipt
                 self.regularPaymentsReceipt.source = payment.source
                 self.regularPaymentsReceipt.date = payment.date
-                print(payment.refPayment, payment.date)
-                self.regularPaymentsReceipt.refPayment = payment.refPayment  # Utile ?
+                #self.regularPaymentsReceipt.refPayment = payment.refPayment  # Utile ?
         else:
             receipt = Receipt(self, paymentAmount, payment.source, payment.date, payment.refPayment, False)
             if receipt.canBeExported:

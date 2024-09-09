@@ -20,7 +20,6 @@ from models.Thunderbird import Thunderbird
 
 
 def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs morceaux
-    print(path)
     payments = []
 
     def isEmptyRow(row):
@@ -111,7 +110,6 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
                     source=source,
                     refPayment=row[10].value
                 )
-                print("fm :", newPayment.date, row[0].value)  # Pas bon ici non plus
                 addToPayments(newPayment)
 
         elif source == "virEspChq":

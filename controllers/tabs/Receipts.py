@@ -63,17 +63,17 @@ class Receipts:
         self._clearTreeviews([regTrv, irregTrv])
 
         # Insertion des reçus réguliers et irréguliers
-        for email, regReceipts in receipts["regulars"].items():
-            for id, receipt in regReceipts.items():
-                regTrv.insert('', END, text=email, values=(receipt["date"], id, receipt["amount"], receipt["emailStatus"]))
-
         for email, irregReceipts in receipts["irregulars"].items():
             for id, receipt in irregReceipts.items():
                 irregTrv.insert('', END, text=email, values=(receipt["date"], id, receipt["amount"], receipt["emailStatus"]))
 
+        for email, regReceipts in receipts["regulars"].items():
+            for id, receipt in regReceipts.items():
+                regTrv.insert('', END, text=email, values=(receipt["date"], id, receipt["amount"], receipt["emailStatus"]))
+
         nbReceipts = self._getNbReceipts(receipts)
-        self._setNbReceiptsNtbkTab("regulars", nbReceipts["regulars"])
         self._setNbReceiptsNtbkTab("irregulars", nbReceipts["irregulars"])
+        self._setNbReceiptsNtbkTab("regulars", nbReceipts["regulars"])
 
     def _clearTreeviews(self, treeviews):
         """

@@ -51,11 +51,11 @@ class ReceiptsView(Frame):
         addWidget(receiptsNtbk, "receiptsNtbk")
 
         # Frames pour les dons réguliers et ponctuels
-        self.frames["regularsFr"] = Frame(receiptsNtbk)
         self.frames["irregularsFr"] = Frame(receiptsNtbk)
+        self.frames["regularsFr"] = Frame(receiptsNtbk)
 
-        receiptsNtbk.add(self.frames["regularsFr"], text="Dons ponctuels")
-        receiptsNtbk.add(self.frames["irregularsFr"], text="Dons réguliers")
+        receiptsNtbk.add(self.frames["irregularsFr"], text="Dons ponctuels")
+        receiptsNtbk.add(self.frames["regularsFr"], text="Dons réguliers")
 
         # Comboboxes pour les membres et les années
         membersCbx = Combobox(self)
@@ -86,7 +86,7 @@ class ReceiptsView(Frame):
 
         # Configuration des colonnes des Treeview avec tri si applicable
         for col in columns:
-            for treeview in [self.widgets["receiptsRegTrv"], self.widgets["receiptsIrregTrv"]]:
+            for treeview in [self.widgets["receiptsIrregTrv"], self.widgets["receiptsRegTrv"]]:
                 treeview.column(col["id"], width=col["width"])
                 treeview.heading(col["id"], text=col["name"],
                                  command=lambda col=col, trv=treeview: sortTreeviewCol(trv, col, False))

@@ -169,7 +169,7 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
                     addToPayments(newPayment)
 
     except Exception as e:
-        LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Une erreur est survenue lors du traitement du fichier {source} : {path}. Veuillez vérifier la structure du fichier et le format des données. (erreur rencontrée : {e}, ligne {row[0].row})")
+        LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Une erreur est survenue lors du traitement du fichier {source} : {path}. Veuillez vérifier la structure du fichier et le format des données. (erreur rencontrée : {e})")
 
     return payments
 

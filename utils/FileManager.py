@@ -1,4 +1,6 @@
 import csv
+import re
+
 import os
 from datetime import datetime
 from operator import attrgetter
@@ -51,10 +53,25 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
         sheet = workbook.active
     else:
         csvContent = []
-        with open(path, mode='r') as csvFile:
-            csvReader = csv.DictReader(csvFile, delimiter=',')
-            for row in csvReader:
-                csvContent.append(row)
+        with open(path, mode='r', newline='', encoding="utf-8-sig") as file:
+            csv_reader = csv.reader(file, delimiter=',')
+
+            rows = [row for row in csv_reader]
+
+            header = ["Heure de soumission","Nom","Prénom","E-mail","Téléphone","Address - Rue","Address - Appartement, suite, etc.","Address - Ville","Address - Code postal","Nationalité","Profession","Date de naissance","Est-ce une ré-adhésion ?","Montant don","Carte de crédit/débit - Mode","Carte de crédit/débit - Nom du produit / forfait","Carte de crédit/débit - Type de paiement","Carte de crédit/débit - Montant","Carte de crédit/débit - Devise","Carte de crédit/débit - Quantité","Carte de crédit/débit - ID de la transaction","Carte de crédit/débit - État ","Carte de crédit/débit - Gérer"]
+
+            for row in rows[1:]:
+                r = {}
+
+                newLine = re.sub(r',(?=\S)', ';', row[0])
+
+                items = newLine.split(';')
+
+                c = 0
+                for v in items:
+                    r[header[c]] = v.replace('"', '').strip()
+                    c += 1
+                csvContent.append(r)
 
     try:
         if source == "helloAsso":
@@ -148,10 +165,9 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
                 addToPayments(newPayment)
 
         elif source == "cb":
-            requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant",
-                            "Carte de crédit/débit - État "]
+            requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant", "Carte de crédit/débit - État "]
             for row in csvContent:
-                if all(row[key] is not None for key in requiredCols) and row["Carte de crédit/débit - État "].casefold() == "completed":
+                if True:#all(row[key] is not None for key in requiredCols) and row["Carte de crédit/débit - État "].casefold() == "completed":
                     newPayment = Payment(
                         email=row["E-mail"],
                         lastName=row["Nom"],

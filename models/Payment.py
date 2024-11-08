@@ -42,8 +42,8 @@ class Payment:
         else:
             self.setNoValid(f"Ville incorrecte : '{city}'")
 
-        phone = str(phone)
-        if len(phone) == 10 and phone[0] == 0:
+        phone = str(phone).replace(' ', '')
+        if len(phone) == 10 and int(phone[0]) == 0:
             self.phone = phone
         elif len(phone) == 9:
             self.phone = '0' + phone

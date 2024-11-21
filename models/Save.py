@@ -70,7 +70,7 @@ class Save:  # todo : A renommer en Cache
                 "path": '',
                 "profilePath": thunderbirdProfilePath,
                 "contactsList": "Adhérents",
-                "fromEmail": '',
+                "fromEmail": "adhesion.don.tichodrome@gmail.com",
                 "emailSubject": "Reçu fiscal pour votre don au Tichodrome",
                 "emailBody": "Bonjour,<br/>Veuillez trouver en pièce jointe le reçu fiscal de votre don au Tichodrome."
             },

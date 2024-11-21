@@ -38,7 +38,7 @@ class Thunderbird:
             self.userJSPath = self.profilePath / "user.js"
             self.LocalFoldersPath = self.profilePath / "Mail/Local Folders"
 
-            self.fromEmail = "vincent.bourdon41@gmail.com"
+            self.fromEmail = thunderbirdSettings["fromEmail"]
             self.emailDomain = self.fromEmail.split('@', 1)[1]
             self.serviceName = self.emailDomain.split('.', 1)[0].capitalize()
 

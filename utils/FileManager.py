@@ -73,7 +73,7 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
                     c += 1
                 csvContent.append(r)
 
-    try:
+    try: # todo: A optimiser
         if source == "helloAsso":
             requiredCols = {"montant":1, "date":2, "nom de famille":5, "prénom":6, "adresse mail":7}
             for row in sheet.iter_rows(min_row=2):
@@ -89,10 +89,10 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
                     lastName=row[5].value,
                     firstName=row[6].value,
                     date=row[2].value.strftime("%d/%m/%Y"),
-                    regular=row[8].value == "Crowdfunding",
-                    address=row[9].value,
-                    postalCode=str(row[10].value),
-                    city=row[11].value,
+                    regular=row[9].value == "Don mensuel",
+                    address=row[10].value,
+                    postalCode=str(row[11].value),
+                    city=row[12].value,
                     phone='',
                     amount=float(row[1].value),
                     source=source,
@@ -102,7 +102,7 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
 
         elif source == "paypal":
             requiredCols = {"date":0, "noms":2, "montant":8, "adresse mail":9, "état":4}
-            for row in sheet.iter_rows(min_row=4):
+            for row in sheet.iter_rows(min_row=2):
                 if row[4].value != "Terminé" or float(row[8].value) == 0 or row[3].value not in ("Paiement de don", "Paiement d'abonnement"):
                     continue
                 if isEmptyRow(row):
@@ -113,6 +113,11 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
                     continue  # Si ligne manque des valeurs obligatoires, on affiche un message et on ignore la ligne
 
                 names = row[2].value.rsplit(' ', 1)
+                if len(names) != 2:
+                    LogManager().addLog("update", LogManager.LOGTYPE_WARNING,
+                                        f"Pour le paiement n°{row[10].value} : Il y a une erreur avec le nom du donateur '{''.join(names)}'")
+                    continue
+
                 newPayment = Payment(
                     email=row[9].value,
                     lastName=names[0],

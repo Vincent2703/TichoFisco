@@ -57,7 +57,7 @@ class Thunderbird:
             self._createLocalFolder()
             self._addCustomLabels()
 
-            self.contactListName = "Adhérents"
+            self.contactListName = thunderbirdSettings["contactsList"]
             self.DBConnection = self._getConnectionToHistoryDB(self.profilePath / "history.sqlite")
             self.cursor = self.DBConnection.cursor()
 
@@ -72,20 +72,23 @@ class Thunderbird:
         try:
             return sqlite3.connect(path)
         except Exception as e:
-            LogManager().addLog("Thunderbird", LogManager.LOGTYPE_ERROR, f"Impossible de se connection à la BDD history de Thunderbird : {e}")
+            LogManager().addLog("Thunderbird", LogManager.LOGTYPE_ERROR, f"Impossible de se connecter à la BDD history de Thunderbird : {e}")
 
     def _createContactList(self, name):
+        name = name.strip()
         contactList = self.cursor.execute(f"SELECT uid, name FROM lists WHERE name='{name}' LIMIT 1;")
-        getContactListUID = next(contactList, [False])[0]
-        if not getContactListUID:
+        queryResult = contactList.fetchone()
+        result = not(queryResult and queryResult[1].strip() == name)
+        #getContactListUID = next(contactList, [False])[0]
+        if result:
+            if self.isRunning():
+                self._terminate()
             uid = uuid.uuid4()
             self.cursor.execute(f"INSERT INTO lists (uid, name, description) VALUES('{uid}', '{name}', 'Liste des adhérents du Tichodrome')")  # todo try
             self.DBConnection.commit()
             LogManager().addLog("Thunderbird", LogManager.LOGTYPE_INFO, "Création de la liste de contacts")
-            if self.isRunning():
-                self._terminate()
             return uid
-        return getContactListUID
+        return result
 
     def _getContactsFromList(self, contactListUID):
         # Crée un dictionnaire pour stocker les contacts
@@ -141,6 +144,7 @@ class Thunderbird:
             self.DBConnection.commit()
             self.contacts[email] = {"firstName": firstName, "lastName": lastName}
             LogManager().addLog("Thunderbird", LogManager.LOGTYPE_INFO, f"{email} ajouté avec succès à la liste de contacts")
+            #Ajouter erreur si problème
 
     def addContactsToList(self, contacts):
         self.DBConnection = self._getConnectionToHistoryDB(self.profilePath / "history.sqlite")
@@ -178,31 +182,30 @@ class Thunderbird:
         if not to:
             return False
 
-        subject = subject or self.emailSubject
-        message = message or self.emailBody
+        subject = (subject or self.emailSubject).strip()
+        message = (message or self.emailBody).strip()
 
         timezone = pytz.timezone("Europe/Paris")
         date = format_datetime(datetime.now(timezone))
-        messageID = f"<{uuid.uuid4()}@{self.emailDomain}>"
+        messageID = f"<{uuid.uuid4()}@{self.emailDomain.strip()}>"
 
         fileName = (Path(filePath)).name
         with open(filePath, "rb") as pdfFile:
             fileB64 = base64.b64encode(pdfFile.read()).decode("ascii")
 
         boundary = f"{uuid.uuid4().hex}"
-
         mimeContent = f"""From 
 X-Mozilla-Status: 0800
 X-Mozilla-Status2: 00010000
 X-Mozilla-Keys: {self.tags["toSend"]["name"]}                                                                  
 Content-Type: multipart/mixed; boundary="------------{boundary}"
-Message-ID: <{messageID}@{self.emailDomain}>
+Message-ID: <{messageID}@{self.emailDomain.strip()}>
 Date: {date}
 MIME-Version: 1.0
 User-Agent: Mozilla Thunderbird
 Content-Language: fr
-To: {to}
-From: {self.fromEmail}
+To: {to.strip()}
+From: {self.fromEmail.strip()}
 Subject: {subject}
 X-Mozilla-Draft-Info: internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0;
  attachmentreminder=0; deliveryformat=0

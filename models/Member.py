@@ -11,6 +11,7 @@ class Member:
         self.firstName = firstName
 
         self.receipts = []  # Seulement pour les paiements ponctuels
+        self.amountNotExported = 0
         self.regularPaymentsReceipt = None
         self.status = None
         self.lastMembership = None
@@ -75,6 +76,8 @@ class Member:
             receipt = Receipt(self, paymentAmount, payment.source, payment.date, payment.refPayment, False)
             if receipt.canBeExported:
                 self.receipts.append(receipt)
+            else:
+                self.amountNotExported += paymentAmount
 
     def isThisMember(self, email, lastName, firstName):
         return (email.casefold() == self.email.casefold()) or (lastName.casefold() == self.lastName.casefold() and firstName.casefold() == self.firstName.casefold())

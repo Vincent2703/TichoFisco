@@ -120,8 +120,8 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
 
                 newPayment = Payment(
                     email=row[9].value,
-                    lastName=names[0],
-                    firstName=names[1],
+                    lastName=names[1],
+                    firstName=names[0],
                     date=row[0].value.strftime("%d/%m/%Y"),
                     regular=row[3].value == "Paiement d'abonnement",
                     address=row[11].value,
@@ -278,13 +278,19 @@ def exportMembersFile(filePath, members):
             "withoutReceipt": 0,
             "nbReceipts": 0
         }
+
         for member in members:
-            for receipt in member.receipts:
-                if receipt.canBeExported:
-                    totals["withReceipt"] += receipt.amount
-                    totals["nbReceipts"] += 1
-                else:
-                    totals["withoutReceipt"] += receipt.amount
+            # Handle regular payment receipt
+            if member.regularPaymentsReceipt and not member.regularPaymentsReceipt.canBeExported:
+                totals["withoutReceipt"] += member.regularPaymentsReceipt.amount
+
+            # Process individual receipts
+            totals["withReceipt"] += sum(receipt.amount for receipt in member.receipts if receipt.canBeExported)
+            totals["nbReceipts"] += sum(1 for receipt in member.receipts if receipt.canBeExported)
+
+            # Add non-exported amounts
+            totals["withoutReceipt"] += member.amountNotExported
+
         return totals
 
     try:

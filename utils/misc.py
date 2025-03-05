@@ -94,36 +94,35 @@ def openFile(path):
     return False
 
 
+
 def convertFrenchDate(frenchDateStr):
     """
-    Convertit une date au format français (avec les mois en français) en datetime.
+    Convertit une date contenant un mois en français en datetime.
 
     Paramètre :
-        frenchDateStr : Chaîne de caractères contenant la date en français.
+        frenchDateStr : Chaîne de caractères contenant la date en français ou anglais.
 
     Retourne :
         Un objet datetime correspondant à la date.
     """
     frenchToEnglishMonths = {
-        "Janvier": "January", "Février": "February", "Mars": "March",
-        "Avril": "April", "Mai": "May", "Juin": "June",
-        "Juillet": "July", "Août": "August", "Septembre": "September",
-        "Octobre": "October", "Novembre": "November", "Décembre": "December"
+        "Fév": "Feb", "Avr": "Apr", "Mai": "May", "Juin": "Jun",
+        "Juil": "Jul", "Août": "Aug", "Déc": "Dec"
     }
 
-    # Remplacer le mois français par le mois anglais
-    englishDateStr = frenchDateStr
+    # Remplacer uniquement si un mois français est détecté
     for frenchMonth, englishMonth in frenchToEnglishMonths.items():
         if frenchMonth in frenchDateStr:
-            englishDateStr = frenchDateStr.replace(frenchMonth, englishMonth)
-            break
+            frenchDateStr = frenchDateStr.replace(frenchMonth, englishMonth)
+            break  # Une seule substitution suffit
 
-    # Gestion d'erreurs lors de la conversion
+    # Gestion d'erreur lors de la conversion
     try:
-        return datetime.strptime(englishDateStr, "%b %d, %Y @ %I:%M %p")
+        return datetime.strptime(frenchDateStr, "%b %d, %Y @ %I:%M %p")
     except ValueError as e:
-        LogManager().addLog("OS", LogManager.LOGTYPE_ERROR, f"Erreur lors de la conversion de la date : {e}")
-        raise
+        print(f"Erreur de conversion de la date : {e}")
+        return None
+
 
 
 def centerTkinterWindow(win):

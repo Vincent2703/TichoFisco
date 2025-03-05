@@ -42,15 +42,19 @@ class Payment:
         else:
             self.setNoValid(f"Ville incorrecte : '{city}'")
 
-        phone = str(phone).replace(' ', '')
-        if len(phone) == 10 and int(phone[0]) == 0:
+        phone = str(phone).replace(' ', '').replace("'", '')
+
+        # Vérifie si le numéro commence par "33" et a 11 chiffres → Remplace par "0"
+        if phone[0] == "+":
+            phone = '0'+phone[3:]
+
+        if len(phone) == 10 and phone.startswith("0"):
             self.phone = phone
         elif len(phone) == 9:
-            self.phone = '0' + phone
+            self.phone = "0" + phone
         else:
-            self.phone = ''
-            if phone != '':
-                LogManager().addLog("update", LogManager.LOGTYPE_WARNING, f"Numéro de téléphone incorrect : '{phone}'")
+            self.phone = ""  # Numéro invalide
+            LogManager().addLog("update", LogManager.LOGTYPE_WARNING, f"Numéro de téléphone incorrect : '{phone}'")
 
         amount = float(amount)
         if float(amount) > 0:

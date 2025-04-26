@@ -76,47 +76,78 @@ class Thunderbird:
 
     def _createContactList(self, name):
         name = name.strip()
-        contactList = self.cursor.execute(f"SELECT uid, name FROM lists WHERE name='{name}' LIMIT 1;")
-        queryResult = contactList.fetchone()
-        result = not(queryResult and queryResult[1].strip() == name)
-        #getContactListUID = next(contactList, [False])[0]
-        if result:
-            if self.isRunning():
-                self._terminate()
-            uid = uuid.uuid4()
-            self.cursor.execute(f"INSERT INTO lists (uid, name, description) VALUES('{uid}', '{name}', 'Liste des adhérents du Tichodrome')")  # todo try
-            self.DBConnection.commit()
-            LogManager().addLog("Thunderbird", LogManager.LOGTYPE_INFO, "Création de la liste de contacts")
-            return uid
-        return result
+
+        try:
+            # Vérifie si la table 'lists' existe
+            table_check = self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='lists';"
+            ).fetchone()
+
+            if not table_check:
+                print("La table 'lists' n'existe pas.")
+                return None
+
+            # Vérifie si la liste existe déjà
+            contactList = self.cursor.execute(
+                "SELECT uid, name FROM lists WHERE name = ? LIMIT 1;", (name,)
+            )
+            queryResult = contactList.fetchone()
+
+            result = not (queryResult and queryResult[1].strip() == name)
+
+            if result:
+                if self.isRunning():
+                    self._terminate()
+
+                uid = str(uuid.uuid4())
+                self.cursor.execute(
+                    "INSERT INTO lists (uid, name, description) VALUES (?, ?, ?)",
+                    (uid, name, "Liste des adhérents du Tichodrome")
+                )
+                self.DBConnection.commit()
+
+                LogManager().addLog("Thunderbird", LogManager.LOGTYPE_INFO, "Création de la liste de contacts")
+                return uid
+
+            return result
+
+        except sqlite3.Error as e:
+            print(f"Erreur SQLite : {e}")
+            return None
+        except Exception as e:
+            print(f"Erreur inattendue : {e}")
+            return None
 
     def _getContactsFromList(self, contactListUID):
-        # Crée un dictionnaire pour stocker les contacts
-        contacts = {}
+        try:
+            # Crée un dictionnaire pour stocker les contacts
+            contacts = {}
 
-        # Créé un dictionnaire pour stocker toutes les propriétés des contacts
-        contactsProperties = {}
+            # Créé un dictionnaire pour stocker toutes les propriétés des contacts
+            contactsProperties = {}
 
-        # Combiner les requêtes SQL pour récupérer les propriétés directement
-        query = f"""
-            SELECT p.card, p.name, p.value 
-            FROM list_cards lc
-            JOIN properties p ON lc.card = p.card
-            WHERE lc.list = '{contactListUID}';
-        """
+            # Combiner les requêtes SQL pour récupérer les propriétés directement
+            query = f"""
+                SELECT p.card, p.name, p.value 
+                FROM list_cards lc
+                JOIN properties p ON lc.card = p.card
+                WHERE lc.list = '{contactListUID}';
+            """
 
-        # Parcourir les résultats et structurer les données dans le dictionnaire "contactsProperties"
-        for card, name, value in self.cursor.execute(query):
-            if card not in contactsProperties:
-                contactsProperties[card] = {}
-            contactsProperties[card][name] = value
+            # Parcourir les résultats et structurer les données dans le dictionnaire "contactsProperties"
+            for card, name, value in self.cursor.execute(query):
+                if card not in contactsProperties:
+                    contactsProperties[card] = {}
+                contactsProperties[card][name] = value
 
-        # Réorganiser le dictionnaire en utilisant l'email comme clé principale
-        for contact in contactsProperties.values():
-            contacts[contact["PrimaryEmail"]] = {"firstName": contact.get("FirstName"),
-                                                 "lastName": contact.get("LastName")}
+            # Réorganiser le dictionnaire en utilisant l'email comme clé principale
+            for contact in contactsProperties.values():
+                contacts[contact["PrimaryEmail"]] = {"firstName": contact.get("FirstName"),
+                                                     "lastName": contact.get("LastName")}
 
-        return contacts
+            return contacts
+        except Exception as e:
+            print(f"Erreur inattendue : {e}")
 
     def _addContactToList(self, email, firstName, lastName):
         if email not in self.contacts:
@@ -147,11 +178,14 @@ class Thunderbird:
             #Ajouter erreur si problème
 
     def addContactsToList(self, contacts):
-        self.DBConnection = self._getConnectionToHistoryDB(self.profilePath / "history.sqlite")
-        self.cursor = self.DBConnection.cursor()
-        for email, contactNames in contacts.items():
-            self._addContactToList(email, contactNames["firstName"], contactNames["lastName"])
-        self.DBConnection.close()
+        try:
+            self.DBConnection = self._getConnectionToHistoryDB(self.profilePath / "history.sqlite")
+            self.cursor = self.DBConnection.cursor()
+            for email, contactNames in contacts.items():
+                self._addContactToList(email, contactNames["firstName"], contactNames["lastName"])
+            self.DBConnection.close()
+        except Exception as e:
+            print(f"Erreur inattendue : {e}")
 
     def _createLocalFolder(self):
         if os.path.isdir(self.LocalFoldersPath):
@@ -179,65 +213,69 @@ class Thunderbird:
             file.close()
 
     def addMail(self, subject=None, to=None, message=None, filePath=None):
-        if not to:
-            return False
+        try:
+            if not to:
+                return False
 
-        subject = (subject or self.emailSubject).strip()
-        message = (message or self.emailBody).strip()
+            subject = (subject or self.emailSubject).strip()
+            message = (message or self.emailBody).strip()
 
-        timezone = pytz.timezone("Europe/Paris")
-        date = format_datetime(datetime.now(timezone))
-        messageID = f"<{uuid.uuid4()}@{self.emailDomain.strip()}>"
+            timezone = pytz.timezone("Europe/Paris")
+            date = format_datetime(datetime.now(timezone))
+            messageID = f"<{uuid.uuid4()}@{self.emailDomain.strip()}>"
 
-        fileName = (Path(filePath)).name
-        with open(filePath, "rb") as pdfFile:
-            fileB64 = base64.b64encode(pdfFile.read()).decode("ascii")
+            fileName = (Path(filePath)).name
+            with open(filePath, "rb") as pdfFile:
+                fileB64 = base64.b64encode(pdfFile.read()).decode("ascii")
 
-        boundary = f"{uuid.uuid4().hex}"
-        mimeContent = f"""From 
-X-Mozilla-Status: 0800
-X-Mozilla-Status2: 00010000
-X-Mozilla-Keys: {self.tags["toSend"]["name"]}                                                                  
-Content-Type: multipart/mixed; boundary="------------{boundary}"
-Message-ID: <{messageID}@{self.emailDomain.strip()}>
-Date: {date}
-MIME-Version: 1.0
-User-Agent: Mozilla Thunderbird
-Content-Language: fr
-To: {to.strip()}
-From: {self.fromEmail.strip()}
-Subject: {subject}
-X-Mozilla-Draft-Info: internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0;
- attachmentreminder=0; deliveryformat=0
-X-Identity-Key: id1
+            boundary = f"{uuid.uuid4().hex}"
+            mimeContent = f"""From 
+    X-Mozilla-Status: 0800
+    X-Mozilla-Status2: 00010000
+    X-Mozilla-Keys: {self.tags["toSend"]["name"]}                                                                  
+    Content-Type: multipart/mixed; boundary="------------{boundary}"
+    Message-ID: <{messageID}@{self.emailDomain.strip()}>
+    Date: {date}
+    MIME-Version: 1.0
+    User-Agent: Mozilla Thunderbird
+    Content-Language: fr
+    To: {to.strip()}
+    From: {self.fromEmail.strip()}
+    Subject: {subject}
+    X-Mozilla-Draft-Info: internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0;
+     attachmentreminder=0; deliveryformat=0
+    X-Identity-Key: id1
+    
+    This is a multi-part message in MIME format.
+    --------------{boundary}
+    Content-Type: text/html; charset=UTF-8
+    Content-Transfer-Encoding: 7bit
+    
+    <!DOCTYPE html>
+    <html>
+      <head>
+    
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+      </head>
+      <body>
+        {message}
+      </body>
+    </html>
+    --------------{boundary}
+    Content-Type: application/pdf; name="{fileName}"
+    Content-Disposition: attachment; filename="{fileName}"
+    Content-Transfer-Encoding: base64
+    
+    {fileB64}
+    
+    --------------{boundary}--
+    """
 
-This is a multi-part message in MIME format.
---------------{boundary}
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+            with open(self.unsentFolderPath, "ab") as f:
+                f.write(bytes(mimeContent, encoding="utf8"))
 
-<!DOCTYPE html>
-<html>
-  <head>
-
-    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-  </head>
-  <body>
-    {message}
-  </body>
-</html>
---------------{boundary}
-Content-Type: application/pdf; name="{fileName}"
-Content-Disposition: attachment; filename="{fileName}"
-Content-Transfer-Encoding: base64
-
-{fileB64}
-
---------------{boundary}--
-"""
-
-        with open(self.unsentFolderPath, "ab") as f:
-            f.write(bytes(mimeContent, encoding="utf8"))
+        except Exception as e:
+            print(f"Erreur inattendue : {e}")
 
     def isRunning(self):
         try:

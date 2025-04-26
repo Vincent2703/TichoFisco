@@ -135,7 +135,7 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
                 addToPayments(newPayment)
 
         elif source == "virEspChq":
-            requiredCols = {"date":0, "adresse mail":2, "nom de famille":3, "prénom":4, "montant":8}
+            requiredCols = {"date":0, "adresse mail":2, "nom de famille":3, "prénom":4, "montant":8, "source":9}
             for row in sheet.iter_rows(min_row=2):
                 if isEmptyRow(row):
                     continue  # Si ligne vide, on ignore et on passe à la suivante
@@ -172,6 +172,7 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
         elif source == "cb":
             requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant", "Carte de crédit/débit - État "]
             for row in csvContent:
+                #TODO fix
                 if True:#all(row[key] is not None for key in requiredCols) and row["Carte de crédit/débit - État "].casefold() == "completed":
                     newPayment = Payment(
                         email=row["E-mail"],

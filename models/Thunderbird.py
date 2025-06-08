@@ -222,7 +222,7 @@ class Thunderbird:
 
             timezone = pytz.timezone("Europe/Paris")
             date = format_datetime(datetime.now(timezone))
-            messageID = f"<{uuid.uuid4()}@{self.emailDomain.strip()}>"
+            messageID = f"{uuid.uuid4()}@{self.emailDomain.strip()}"
 
             fileName = (Path(filePath)).name
             with open(filePath, "rb") as pdfFile:
@@ -230,46 +230,47 @@ class Thunderbird:
 
             boundary = f"{uuid.uuid4().hex}"
             mimeContent = f"""From 
-    X-Mozilla-Status: 0800
-    X-Mozilla-Status2: 00010000
-    X-Mozilla-Keys: {self.tags["toSend"]["name"]}                                                                  
-    Content-Type: multipart/mixed; boundary="------------{boundary}"
-    Message-ID: <{messageID}@{self.emailDomain.strip()}>
-    Date: {date}
-    MIME-Version: 1.0
-    User-Agent: Mozilla Thunderbird
-    Content-Language: fr
-    To: {to.strip()}
-    From: {self.fromEmail.strip()}
-    Subject: {subject}
-    X-Mozilla-Draft-Info: internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0;
-     attachmentreminder=0; deliveryformat=0
-    X-Identity-Key: id1
-    
-    This is a multi-part message in MIME format.
-    --------------{boundary}
-    Content-Type: text/html; charset=UTF-8
-    Content-Transfer-Encoding: 7bit
-    
-    <!DOCTYPE html>
-    <html>
-      <head>
-    
-        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-      </head>
-      <body>
-        {message}
-      </body>
-    </html>
-    --------------{boundary}
-    Content-Type: application/pdf; name="{fileName}"
-    Content-Disposition: attachment; filename="{fileName}"
-    Content-Transfer-Encoding: base64
-    
-    {fileB64}
-    
-    --------------{boundary}--
-    """
+X-Mozilla-Status: 0800
+X-Mozilla-Status2: 00010000
+X-Mozilla-Keys: {self.tags["toSend"]["name"]}                                                                  
+Content-Type: multipart/mixed; boundary="------------{boundary}"
+Message-ID: <{messageID}@{self.emailDomain.strip()}>
+Date: {date}
+MIME-Version: 1.0
+User-Agent: Mozilla Thunderbird
+Content-Language: fr
+To: {to.strip()}
+From: {self.fromEmail.strip()}
+Subject: {subject}
+X-Mozilla-Draft-Info: internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0;
+ attachmentreminder=0; deliveryformat=0
+X-Identity-Key: id1
+
+This is a multi-part message in MIME format.
+--------------{boundary}
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+<!DOCTYPE html>
+<html>
+  <head>
+
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  </head>
+  <body>
+    {message}
+  </body>
+</html>
+--------------{boundary}
+Content-Type: application/pdf; name="{fileName}"
+Content-Disposition: attachment; filename="{fileName}"
+Content-Transfer-Encoding: base64
+
+{fileB64}
+
+--------------{boundary}--
+
+"""
 
             with open(self.unsentFolderPath, "ab") as f:
                 f.write(bytes(mimeContent, encoding="utf8"))

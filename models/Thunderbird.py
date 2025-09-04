@@ -36,11 +36,14 @@ class Thunderbird:
             self.pathExeSoftware = self.pathSoftware / "thunderbird.exe"
             self.profilePath = Path(thunderbirdSettings["profilePath"])
             self.userJSPath = self.profilePath / "user.js"
+            self.prefsJSPath = self.profilePath / "prefs.js"
             self.LocalFoldersPath = self.profilePath / "Mail/Local Folders"
 
             self.fromEmail = thunderbirdSettings["fromEmail"]
             self.emailDomain = self.fromEmail.split('@', 1)[1]
             self.serviceName = self.emailDomain.split('.', 1)[0].capitalize()
+
+            self.userEmailId = self._getUserEmailId(self.fromEmail.strip(), self.prefsJSPath)
 
             self.emailSubject = thunderbirdSettings["emailSubject"]
             self.emailBody = thunderbirdSettings["emailBody"]
@@ -212,6 +215,23 @@ class Thunderbird:
                     file.write(colorLine + tagLine)
             file.close()
 
+    def _getUserEmailId(self, email, prefsPath):
+        pattern = re.compile(
+            rf'user_pref\("mail\.identity\.(id[0-9]+)\.useremail",\s*"{re.escape(email)}"\);'
+        )
+
+        userEmailId = None
+        with open(prefsPath, "r", encoding="utf-8") as f:
+            for line in f:
+                match = pattern.search(line)
+                if match:
+                    userEmailId = match.group(1)
+                    break
+
+        if userEmailId:
+            return userEmailId
+        return "idX"
+
     def addMail(self, subject=None, to=None, message=None, filePath=None):
         try:
             if not to:
@@ -244,7 +264,7 @@ From: {self.fromEmail.strip()}
 Subject: {subject}
 X-Mozilla-Draft-Info: internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0;
  attachmentreminder=0; deliveryformat=0
-X-Identity-Key: id1
+X-Identity-Key: {self.userEmailId}
 
 This is a multi-part message in MIME format.
 --------------{boundary}

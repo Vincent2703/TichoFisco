@@ -1,4 +1,5 @@
 import os
+import re
 from tkinter import END
 
 from models.Save import Save
@@ -224,9 +225,15 @@ class Receipts:
     def _getPathFromID(self, ID):
         # Pour bien faire, il faudrait avoir le chemin du reçu dans une colonne cachée
         # Mais là on va juste le récupérer via son ID
+        #Si c'est un reçu régulier...
         year = f"20{ID[:2]}"
         month = str(int(ID[2:4]))
-        path = PathManager().getPaths()["recusFiscaux"] / year / month / f"{ID}.pdf"
+
+        isRegular = re.search("^[0-9]{6}[A-Z]{2}R[0-9]$", ID)
+        if isRegular:
+            path = PathManager().getPaths()["recusFiscaux"] / year / "reguliers" / f"{ID}.pdf"
+        else:
+            path = PathManager().getPaths()["recusFiscaux"] / year / month / f"{ID}.pdf"
         return path
 
     def openReceiptCb(self):

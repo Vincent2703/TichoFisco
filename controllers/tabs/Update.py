@@ -270,13 +270,14 @@ class Update:
           Paramètres :
               membersByYear (dict): Un dictionnaire contenant les membres classés par année et email.
           """
-        self.progressBar.setNbSteps(len(membersByYear.items())*2)
+        self.progressBar.setNbSteps(1)
 
         for year, members in membersByYear.items():
-            self.progressBar.incrementProgress(labelTxt=f"Exportation des fichiers pour l'année {year}", showStep=True, hideAfterFinish=False)
+            self.progressBar.incrementProgress(labelTxt=f"Exportation de la liste des adhérents pour l'année {year}", showStep=False, hideAfterFinish=False)
             exportMembersFile(self.paths["listesAdherents"] / f"liste des adhérents {year}.xlsx", members)
-            self.progressBar.incrementProgress(labelTxt=f"Exportation des fichiers pour l'année {year}", showStep=True, hideAfterFinish=False)
-            exportMemberReceipts(members)
+            #self.progressBar.incrementProgress(labelTxt=f"Exportation des reçus fiscaux pour l'année {year} en cours", showStep=False, hideAfterFinish=False)
+            self.progressBar.setNbSteps(len(members))
+            exportMemberReceipts(members, self.progressBar) #C'est pas propre mais chut
         self.progressBar.resetProgress()
 
     def saveCacheAndEmailContacts(self, emailContacts):

@@ -46,7 +46,7 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
             payments.append(payment)
         else:
             LogManager().addLog("update", LogManager.LOGTYPE_WARNING,
-                                f"Impossible de valider le paiement '{payment.source.upper()}' venant de '{payment.lastName} {payment.firstName}'. Référence du paiement : '{payment.refPayment}'.\nRaison -> {payment.notValidCause}")
+                                f"Impossible de valider le paiement '{payment.source.upper()}' venant de {payment.lastName} {payment.firstName}. Référence du paiement : '{payment.refPayment}'.\nRaison -> {payment.notValidCause}")
 
     if source != "cb":
         workbook = load_workbook(filename=path)
@@ -324,7 +324,7 @@ def exportMembersFile(filePath, members):
                             f"Une erreur est survenue lors de l'exportation du fichier {filePath}.\n{error}")
 
 
-def exportMemberReceipts(members):
+def exportMemberReceipts(members, progressBar):
     for email, member in members.items():
         if member.hasValidAddress():
             try:  # Exportation des PDFs
@@ -335,14 +335,17 @@ def exportMemberReceipts(members):
 
                 try:  # Sauvegarde des reçus exportés avec succès
                     Save().addMemberReceipt(member.email, exportedReceipts)
+                    progressBar.incrementProgress(
+                        labelTxt=f"Exportation des reçus fiscaux pour chaque adhérent", showStep=True,
+                        hideAfterFinish=False)
 
                 except(Exception,) as error:
                     LogManager().addLog("update", LogManager.LOGTYPE_ERROR,
-                                        f"Une erreur est survenue lors de l'enregistrement de '{member.lastName} {member.firstName}' dans le fichier de sauvegarde : {error}")
+                                        f"Une erreur est survenue lors de l'enregistrement de {member.lastName} {member.firstName} dans le fichier de sauvegarde : {error}")
 
             except(Exception,) as error:
                 LogManager().addLog("update", LogManager.LOGTYPE_ERROR,
-                                    f"Une inconnue est survenue lors de l'exportation des reçus de '{member.lastName} {member.firstName} : {error}'")
+                                    f"Une inconnue est survenue lors de l'exportation des reçus de {member.lastName} {member.firstName} : {error}'")
 
         else:
             LogManager().addLog("update", LogManager.LOGTYPE_WARNING,
@@ -367,8 +370,12 @@ def _exportReceipts(receipts):  # TODO : Vérifier si erreur avant de faire expo
     for receipt in receipts:
         if receipt.canBeExported:
             receiptDate = datetime.strptime(receipt.date, "%d/%m/%Y")
-            year, month = str(receiptDate.year), str(receiptDate.month)
-            directory = path.join(paths["recusFiscaux"], year, month)
+            receiptYear, receiptMonth = str(receiptDate.year), str(receiptDate.month)
+            currentMonth = datetime.now().month
+            if receipt.regular and currentMonth==12:
+                directory = path.join(paths["recusFiscaux"], receiptYear, "reguliers")
+            else:
+                directory = path.join(paths["recusFiscaux"], receiptYear, receiptMonth)
 
             isDirOK = True
             if not path.isdir(directory):

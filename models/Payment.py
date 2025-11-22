@@ -14,8 +14,8 @@ class Payment:
         else:
             self.setNoValid(f"Mail incorrect : '{email}'")
 
-        self.lastName = lastName.upper()
-        self.firstName = firstName[0].upper() + firstName[1:].lower()
+        self.lastName = lastName.upper().replace("'", "`")
+        self.firstName = firstName[0].upper().replace("'", "`") + firstName[1:].lower().replace("'", "`")
 
         dateRegex = r'^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/(\d{4})$'
         if re.match(dateRegex, date):

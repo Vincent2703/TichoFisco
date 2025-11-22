@@ -64,14 +64,10 @@ class Member:
                 self.regularPaymentsReceipt = Receipt(self, paymentAmount, payment.source, payment.date,
                                                       payment.refPayment, True)
             else:
-                minimalAmountForReceipt = Save().settings["receipts"]["minimalAmount"]
-
                 totalAmount = self.regularPaymentsReceipt.amount + paymentAmount
                 self.regularPaymentsReceipt.amount = totalAmount
-                self.regularPaymentsReceipt.canBeExported = totalAmount >= minimalAmountForReceipt
                 self.regularPaymentsReceipt.source = payment.source
                 self.regularPaymentsReceipt.date = payment.date
-                #self.regularPaymentsReceipt.refPayment = payment.refPayment  # Utile ?
         else:
             receipt = Receipt(self, paymentAmount, payment.source, payment.date, payment.refPayment, False)
             if receipt.canBeExported:

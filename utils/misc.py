@@ -118,7 +118,7 @@ def convertFrenchDate(frenchDateStr):
 
     # Gestion d'erreur lors de la conversion
     try:
-        return datetime.strptime(frenchDateStr, "%b %d, %Y @ %I:%M %p")
+        return datetime.strptime(frenchDateStr, "%b %d %Y @ %I:%M %p")
     except ValueError as e:
         print(f"Erreur de conversion de la date : {e}")
         return None

@@ -9,8 +9,8 @@ class Payment:
         self.notValidCause = None
 
         emailRegex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
-        if re.match(emailRegex, email):
-            self.email = email
+        if re.match(emailRegex, email.strip()):
+            self.email = email.strip()
         else:
             self.setNoValid(f"Mail incorrect : '{email}'")
 
@@ -18,31 +18,31 @@ class Payment:
         self.firstName = firstName[0].upper().replace("'", "`") + firstName[1:].lower().replace("'", "`")
 
         dateRegex = r'^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/(\d{4})$'
-        if re.match(dateRegex, date):
-            self.date = date
+        if re.match(dateRegex, date.strip()):
+            self.date = date.strip()
             self.year = int(date[6:10])
         else:
             self.setNoValid(f"Date incorrect : '{date}'")
 
         self.regular = regular is True
 
-        if address != '':
+        if address.strip() != '':
             self.address = str(address)
         else:
             self.setNoValid(f"Adresse incorrect : '{address}'")
 
         postalCodeRegex = r"^\d{5}$"
-        if re.match(postalCodeRegex, postalCode):
-            self.postalCode = postalCode
+        if re.match(postalCodeRegex, postalCode.strip()):
+            self.postalCode = postalCode.strip()
         else:
             self.setNoValid(f"Code postal incorrect : '{postalCode}'")
 
-        if city != '':
+        if city.strip() != '':
             self.city = str(city)
         else:
             self.setNoValid(f"Ville incorrecte : '{city}'")
 
-        if phone != '':
+        if phone.strip() != '':
             phone = str(phone).replace(' ', '').replace("'", '')
 
             # Vérifie si le numéro commence par "33" et a 11 chiffres → Remplace par "0"

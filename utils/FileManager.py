@@ -1,7 +1,7 @@
 import csv
-import re
-
+import io
 import os
+import re
 from datetime import datetime
 from operator import attrgetter
 from os import path
@@ -47,31 +47,54 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
         else:
             LogManager().addLog("update", LogManager.LOGTYPE_WARNING,
                                 f"Impossible de valider le paiement '{payment.source.upper()}' venant de {payment.lastName} {payment.firstName}. Référence du paiement : '{payment.refPayment}'.\nRaison -> {payment.notValidCause}")
-
+    csvArray = []
     if source != "cb":
         workbook = load_workbook(filename=path)
         sheet = workbook.active
     else:
-        csvContent = []
+        header = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Téléphone", "Address - Rue",
+                  "Address - Appartement suite etc.", "Address - Ville", "Address - Code postal", "Nationalité",
+                  "Profession", "Date de naissance", "Est-ce une ré-adhésion ?", "Montant don",
+                  "Carte de crédit/débit - Mode", "Carte de crédit/débit - Nom du produit / forfait",
+                  "Carte de crédit/débit - Type de paiement", "Carte de crédit/débit - Montant",
+                  "Carte de crédit/débit - Devise", "Carte de crédit/débit - Quantité",
+                  "Carte de crédit/débit - ID de la transaction", "Carte de crédit/débit - État ",
+                  "Carte de crédit/débit - Gérer"]
+
         with open(path, mode='r', newline='', encoding="utf-8-sig") as file:
-            csv_reader = csv.reader(file, delimiter=',')
+            csvContent = file.read()
+            lines = []
+            for line in csvContent.splitlines():
+                # 0) Replace Appartement, suite, etc
+                line = line.replace("Appartement, suite, etc", " Appartement suite etc")
 
-            rows = [row for row in csv_reader]
+                # 1) Remove " from beginning and end of each line
+                if line.startswith('"') and line.endswith('"'):
+                    line = line[1:-1]
+                # 2) Remove the , from the datetime
+                line = re.sub(
+                    r'(\s[0-9]{1,2}),(?=\s[0-9]{4}\s@\s[0-9]{1,2}:[0-9]{2}\s(?:PM|AM))',
+                    r'\1',
+                    line
+                )
 
-            header = ["Heure de soumission","Nom","Prénom","E-mail","Téléphone","Address - Rue","Address - Appartement, suite, etc.","Address - Ville","Address - Code postal","Nationalité","Profession","Date de naissance","Est-ce une ré-adhésion ?","Montant don","Carte de crédit/débit - Mode","Carte de crédit/débit - Nom du produit / forfait","Carte de crédit/débit - Type de paiement","Carte de crédit/débit - Montant","Carte de crédit/débit - Devise","Carte de crédit/débit - Quantité","Carte de crédit/débit - ID de la transaction","Carte de crédit/débit - État ","Carte de crédit/débit - Gérer"]
+                # 3) Remove , inside ""
+                line = re.sub(r'""([^"]+)""', lambda m: '""' + m.group(1).replace(',', '') + '""', line)
 
-            for row in rows[1:]:
-                r = {}
+                # 4) Replace "" by nothing
+                line = line.replace('""', '')
 
-                newLine = re.sub(r',(?=\S)', ';', row[0])
+                if line.count(',') == 21: # Missing a col
+                    line = re.sub(
+                        r'(,\s*[0-9\s]{10,}\s*,[^,]+)',
+                        r'\1,',
+                        line
+                    )
 
-                items = newLine.split(';')
+                lines.append(line)
 
-                c = 0
-                for v in items:
-                    r[header[c]] = v.replace('"', '').strip()
-                    c += 1
-                csvContent.append(r)
+                reader = csv.DictReader(io.StringIO('\n'.join(lines)), delimiter=',')
+                rows = list(reader)
 
     try: # todo: A optimiser
         if source == "helloAsso":
@@ -170,25 +193,22 @@ def getDataFromPaymentsFile(path, source):  # todo : A découper en plusieurs mo
                 addToPayments(newPayment)
 
         elif source == "cb":
-            requiredCols = ["Heure de soumission", "Nom", "Prénom", "E-mail", "Carte de crédit/débit - Montant", "Carte de crédit/débit - État "]
-            for row in csvContent:
-                #TODO fix
-                if True:#all(row[key] is not None for key in requiredCols) and row["Carte de crédit/débit - État "].casefold() == "completed":
-                    newPayment = Payment(
-                        email=row["E-mail"],
-                        lastName=row["Nom"],
-                        firstName=row["Prénom"],
-                        date=misc.convertFrenchDate(row["Heure de soumission"]).strftime("%d/%m/%Y"),
-                        regular=False,
-                        address=row["Address - Rue"] + ' ' + row["Address - Appartement, suite, etc."],
-                        postalCode=str(row["Address - Code postal"]),
-                        city=row["Address - Ville"],
-                        phone=str(row["Téléphone"]),
-                        amount=float(row["Carte de crédit/débit - Montant"]),
-                        source=source,
-                        refPayment=str(row["Carte de crédit/débit - ID de la transaction"])
-                    )
-                    addToPayments(newPayment)
+            for row in rows:
+                newPayment = Payment(
+                    email=row["E-mail"],
+                    lastName=row["Nom"],
+                    firstName=row["Prénom"],
+                    date=misc.convertFrenchDate(row["Heure de soumission"]).strftime("%d/%m/%Y"),
+                    regular=False,
+                    address=row["Address - Rue"] + ' ' + row["Address -  Appartement suite etc."],
+                    postalCode=str(row["Address - Code postal"]),
+                    city=row["Address - Ville"],
+                    phone=str(row["Téléphone"]),
+                    amount=float(row["Carte de crédit/débit - Montant"]),
+                    source=source,
+                    refPayment=str(row["Carte de crédit/débit - ID de la transaction"])
+                )
+                addToPayments(newPayment)
 
     except Exception as e:
         LogManager().addLog("update", LogManager.LOGTYPE_ERROR, f"Une erreur est survenue lors du traitement du fichier {source} : {path}. Veuillez vérifier la structure du fichier et le format des données. (erreur rencontrée : {e})")
